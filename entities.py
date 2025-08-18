@@ -14,27 +14,21 @@ class Shape:
         self.z_max = self.z_min+h
 
     def check_collision(self, other):
-
-        # AABL
-        if (self.x_min <= other.x_max and self.x_max >= other.x_min and
-            self.y_min <= other.y_max and self.y_max >= other.y_min and
-            self.z_min <= other.z_max and self.z_max >= other.z_min): 
-            return True
-
-        else:
-            return False
+        # AABL        
+        return (self.x_min <= other.x_max and self.x_max >= other.x_min and
+                self.y_min <= other.y_max and self.y_max >= other.y_min and
+                self.z_min <= other.z_max and self.z_max >= other.z_min)
 
 class CompoundShape:
     def __init__(self, *shapes):
         self.shapes = shapes
 
-        # Center position
-        all_x = [s.x for s in shapes]
-        all_y = [s.y for s in shapes]
-        all_z = [s.z for s in shapes]
-        self.x = sum(all_x)/len(all_x)
-        self.y = sum(all_y)/len(all_y)
-        self.z = sum(all_z)/len(all_z)
+        if len(shapes) == 0:
+            raise ValueError("CompoundShape must have atleast one child shape")
+            
+        self.x = sum(s.x for s in shapes)/len(shapes)
+        self.y = sum(s.x for s in shapes)/len(shapes)
+        self.z = sum(s.x for s in shapes)/len(shapes)
 
 
         # Bounding Box
