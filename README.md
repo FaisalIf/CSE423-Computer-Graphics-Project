@@ -1,4 +1,4 @@
-# Demonds & Portals
+# Demons & Portals
 A minimalistic 3D FPS-puzzle hybrid where the player, a customizable stickman,
 explores three levels of increasing difficulty. Inspired by Doom, while puzzles
 rely on Portal-style teleportation mechanics. Players collect keys, unlock
