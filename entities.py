@@ -14,16 +14,11 @@ class Shape:
         self.z_max = self.z_min+h
 
     def check_collision(self, other):
-        col_x_min = self.x_min < other.x_min < self.x_max
-        col_y_min = self.y_min < other.y_min < self.y_max
-        col_z_min = self.z_min < other.z_min < self.z_max
-        col_x_max = self.x_min < other.x_max < self.x_max
-        col_y_max = self.y_min < other.y_max < self.y_max
-        col_z_max = self.z_min < other.z_max < self.z_max
 
-        col_x = col_x_min or col_x_max
-        col_y = col_y_min or col_y_max
-        col_z = col_z_min or col_z_max
+        col_x = self.x_min <= other.x_max and self.x_max >= other.x_min
+        col_y = self.y_min <= other.y_max and self.y_max >= other.y_min
+        col_z = self.z_min <= other.z_max and self.z_max >= other.z_min
+
 
         if col_x and col_y and col_z: return True
         else: return False
