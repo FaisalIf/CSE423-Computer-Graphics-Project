@@ -15,15 +15,16 @@ class Shape:
 
     def check_collision(self, other):
 
-        col_x = self.x_min <= other.x_max and self.x_max >= other.x_min
-        col_y = self.y_min <= other.y_max and self.y_max >= other.y_min
-        col_z = self.z_min <= other.z_max and self.z_max >= other.z_min
+        # AABL
+        if (self.x_min <= other.x_max and self.x_max >= other.x_min and
+            self.y_min <= other.y_max and self.y_max >= other.y_min and
+            self.z_min <= other.z_max and self.z_max >= other.z_min): 
+            return True
 
+        else:
+            return False
 
-        if col_x and col_y and col_z: return True
-        else: return False
-
-class CompoundShape(Shape):
+class CompoundShape:
     def __init__(self, *shapes):
         self.shapes = shapes
 
@@ -43,3 +44,18 @@ class CompoundShape(Shape):
         self.x_max = max(s.x_max for s in shapes)
         self.y_max = max(s.y_max for s in shapes)
         self.z_max = max(s.z_max for s in shapes)
+
+    def check_collision(self, other): 
+        # Quick bounding box rejection
+        if not (
+            self.x_min <= other.x_max and self.x_max >= other.x_min and
+            self.y_min <= other.y_max and self.y_max >= other.y_min and
+            self.z_min <= other.z_max and self.z_max >= other.z_min
+        ):
+            return False
+
+        # Fine-grained: check each child
+        for s in self.shapes:
+            if s.check_collision(other):
+                return True
+        return False
