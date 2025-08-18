@@ -47,9 +47,12 @@ class CompoundShape:
             self.z_min <= other.z_max and self.z_max >= other.z_min
         ):
             return False
-
-        # Fine-grained: check each child
-        for s in self.shapes:
-            if s.check_collision(other):
-                return True
-        return False
+        # Fine-grained: Compound-Compound
+        if isInstance(other, CompoundShape):
+            for s in self.shapes:
+                for o in other.shapes:
+                    if s.check_collision(o):
+                        return True
+        
+        # Fine-grained: Compound-Simple
+        return any(s.check_collision(other) for s in self.shapes)
