@@ -14,7 +14,7 @@ class Shape:
         self.z_max = self.z_min+h
 
     def check_collision(self, other):
-        # AABL        
+        # AABB       
         return (self.x_min <= other.x_max and self.x_max >= other.x_min and
                 self.y_min <= other.y_max and self.y_max >= other.y_min and
                 self.z_min <= other.z_max and self.z_max >= other.z_min)
