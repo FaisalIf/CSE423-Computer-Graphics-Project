@@ -1,0 +1,17 @@
+# Byte-compiled / cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# PyCharm / VSCode project files (optional)
+.idea/
+.vscode/
+
+# OS files
+Thumbs.db
+desktop.ini
