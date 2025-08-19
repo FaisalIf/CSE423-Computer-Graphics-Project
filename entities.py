@@ -1,13 +1,18 @@
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GLUT import *
+
 from palette import get_color
 
 class Entity:
-    """Create a basic entity with a center, bounding box, and collision logic"""
+    """Create a basic entity with bounding box and collision logic"""
     def __init__(self, x, y, z, width, depth, height):
-        # Center position
         self.x = x
         self.y = y
         self.z = z
-
+        self.width = width
+        self.depth = depth
+        self.height = height
         # Bounding box
         self.x_min = x - width/2
         self.y_min = y - depth/2
@@ -26,20 +31,21 @@ class Entity:
         """Draw the entity. Must be implemented by subclasses"""
         raise NotImplementedError("Each entity must implement draw()")
 
-class 3DShape(Entity):
+class Shape3D(Entity):
     quadric = gluNewQuadric()
 
-class Sphere(3DShape):
-        def __init__(self, color, x, y, z, l, b, h):
-            super().__init__(x, y, z, l, b, h)
+class Sphere(Shape3D):
+        def __init__(self, color, x, y, z, width, depth, height):
+            super().__init__(x, y, z, width, depth, height)
             self.color = get_color(color)
         
         def draw(self):
             glColor3f(*self.color)
             glPushMatrix()
-            glScalef(l, b, h)
-            glSphere(self.quadric, 1, 10, 25)
+            glScalef(self.width, self.depth, self.height)
+            gluSphere(self.quadric, 1, 10, 25)
             glPopMatrix()
+            
 class CompoundEntity:
     def __init__(self, *entities):
         if len(entities) < 2:
@@ -69,7 +75,7 @@ class CompoundEntity:
             return False
             
         # Fine-grained: Compound-Compound
-        if isInstance(other, CompoundEntity):
+        if isinstance(other, CompoundEntity):
             for e in self.entities:
                 for o in other.entities:
                     if e.check_collision(o):
