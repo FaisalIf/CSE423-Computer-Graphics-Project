@@ -83,3 +83,6 @@ class CompoundEntity:
         
         # Fine-grained: Compound-Simple
         return any(e.check_collision(other) for e in self.entities)
+
+    def draw(self):
+        for e in self.entities: e.draw()
