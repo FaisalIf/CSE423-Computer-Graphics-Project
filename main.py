@@ -1,6 +1,7 @@
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
+from palette import get_color
 
 def display():
     glClear(GL_COLOR_BUFFER_BIT)
@@ -39,8 +40,7 @@ def main():
     gluPerspective(fov_y, aspect_ratio, near, far)
 
     # Clear Setup
-    DARK_GREY = (0.1, 0.1, 0.1)
-    background_color = DARK_GREY
+    background_color = get_color('dark_grey')
     glClearColor(*background_color, 1)
 
     glutMainLoop()
