@@ -12,7 +12,7 @@ This is our final project for CSE423 (Computer Graphics). More details can be fo
 ## How to play the game:
 1. Make sure you have Python 3 installed.
 2. Install dependencies: 
-   `pip install requirements.txt`
+   `pip install -r requirements.txt`
 3. Run the game:
    `python main.py`
 
