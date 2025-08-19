@@ -1,3 +1,5 @@
+from palette import get_color
+
 class Shape:
     def __init__(self, x, y, z, l, b, h):
         # Center position
@@ -19,6 +21,22 @@ class Shape:
                 self.y_min <= other.y_max and self.y_max >= other.y_min and
                 self.z_min <= other.z_max and self.z_max >= other.z_min)
 
+    def draw(self):
+        raise NotImplementedError("Each shape must implement draw()")
+
+class 3DShape(Shape):
+    quadric = gluNewQuadric()
+
+class Sphere(3DShape):
+        def __init__(self, color, x, y, z, l, b, h):
+            super().__init__(x, y, z, l, b, h)
+            self.color = get_color(color)
+        def draw(self):
+            glColor3f(*self.color)
+            glPushMatrix()
+            glScalef(l, b, h)
+            glSphere(self.quadric, 1, 10, 25)
+            glPopMatrix()
 class CompoundShape:
     def __init__(self, *shapes):
         self.shapes = shapes
