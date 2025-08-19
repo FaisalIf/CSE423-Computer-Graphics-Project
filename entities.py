@@ -42,6 +42,7 @@ class Sphere(Shape3D):
         def draw(self):
             glColor3f(*self.color)
             glPushMatrix()
+            glTranslatef(self.x, self.y, self.z)
             glScalef(self.width, self.depth, self.height)
             gluSphere(self.quadric, 1, 10, 25)
             glPopMatrix()
