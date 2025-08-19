@@ -6,20 +6,31 @@ from palette import get_color
 
 class Entity:
     """Create a basic entity with bounding box and collision logic"""
-    def __init__(self, x, y, z, width, depth, height):
+    def __init__(self, x, y, z, *dims):
+
+        # Dimensions
+        if len(dims) == 1:
+            self.width = self.depth = self.height = dims[0]
+        elif len(dims) == 2:
+            self.width = self.depth = dims[0]
+            self.height = dims[1]
+        elif len(dims) == 3:
+            self.width, self.depth, self.height = dims
+        else:
+            raise ValueError("Must provide 1, 2, or 3 dimensions")
+
+        # Center
         self.x = x
         self.y = y
         self.z = z
-        self.width = width
-        self.depth = depth
-        self.height = height
+        
         # Bounding box
-        self.x_min = x - width/2
-        self.y_min = y - depth/2
-        self.z_min = z - height/2
-        self.x_max = self.x_min + width
-        self.y_max = self.y_min + depth
-        self.z_max = self.z_min + height
+        self.x_min = x - self.width/2
+        self.y_min = y - self.depth/2
+        self.z_min = z - self.height/2
+        self.x_max = self.x_min + self.width
+        self.y_max = self.y_min + self.depth
+        self.z_max = self.z_min + self.height
 
     def check_collision(self, other):
         """Return True if this entity collides with another"""
@@ -35,8 +46,8 @@ class Shape3D(Entity):
     quadric = gluNewQuadric()
 
 class Sphere(Shape3D):
-        def __init__(self, color, x, y, z, width, depth, height):
-            super().__init__(x, y, z, width, depth, height)
+        def __init__(self, color, x, y, z, *dims):
+            super().__init__(x, y, z, *dims)
             self.color = get_color(color)
         
         def draw(self):
@@ -46,7 +57,7 @@ class Sphere(Shape3D):
             glScalef(self.width, self.depth, self.height)
             gluSphere(self.quadric, 1, 10, 25)
             glPopMatrix()
-            
+
 class CompoundEntity:
     def __init__(self, *entities):
         if len(entities) < 2:
