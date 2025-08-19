@@ -47,9 +47,9 @@ class CompoundEntity:
 
         self.entities = entities
             
-        self.x = sum(e.x for e in shapes)/len(entities)
-        self.y = sum(e.y for e in shapes)/len(entities)
-        self.z = sum(e.z for e in shapes)/len(entities)
+        self.x = sum(e.x for e in entities)/len(entities)
+        self.y = sum(e.y for e in entities)/len(entities)
+        self.z = sum(e.z for e in entities)/len(entities)
 
         # Bounding Box
         self.x_min = min(e.x_min for e in entities)
@@ -69,7 +69,7 @@ class CompoundEntity:
             return False
             
         # Fine-grained: Compound-Compound
-        if isInstance(other, CompoundShape):
+        if isInstance(other, CompoundEntity):
             for e in self.entities:
                 for o in other.entities:
                     if e.check_collision(o):
