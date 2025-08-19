@@ -1,61 +1,63 @@
 from palette import get_color
 
-class Shape:
-    def __init__(self, x, y, z, l, b, h):
+class Entity:
+    """Create a basic entity with a center, bounding box, and collision logic"""
+    def __init__(self, x, y, z, width, depth, height):
         # Center position
         self.x = x
         self.y = y
         self.z = z
 
         # Bounding box
-        self.x_min = x - l/2
-        self.y_min = y - b/2
-        self.z_min = z - h/2
-        self.x_max = self.x_min+l
-        self.y_max = self.y_min+b
-        self.z_max = self.z_min+h
+        self.x_min = x - width/2
+        self.y_min = y - depth/2
+        self.z_min = z - height/2
+        self.x_max = self.x_min + width
+        self.y_max = self.y_min + depth
+        self.z_max = self.z_min + height
 
     def check_collision(self, other):
-        # AABB       
+        """Return True if this entity collides with another"""
         return (self.x_min <= other.x_max and self.x_max >= other.x_min and
                 self.y_min <= other.y_max and self.y_max >= other.y_min and
                 self.z_min <= other.z_max and self.z_max >= other.z_min)
 
     def draw(self):
-        raise NotImplementedError("Each shape must implement draw()")
+        """Draw the entity. Must be implemented by subclasses"""
+        raise NotImplementedError("Each entity must implement draw()")
 
-class 3DShape(Shape):
+class 3DShape(Entity):
     quadric = gluNewQuadric()
 
 class Sphere(3DShape):
         def __init__(self, color, x, y, z, l, b, h):
             super().__init__(x, y, z, l, b, h)
             self.color = get_color(color)
+        
         def draw(self):
             glColor3f(*self.color)
             glPushMatrix()
             glScalef(l, b, h)
             glSphere(self.quadric, 1, 10, 25)
             glPopMatrix()
-class CompoundShape:
-    def __init__(self, *shapes):
-        self.shapes = shapes
+class CompoundEntity:
+    def __init__(self, *entities):
+        if len(entities) < 2:
+            raise ValueError("Compound entities must have atleast two child entities")
 
-        if len(shapes) == 0:
-            raise ValueError("CompoundShape must have atleast one child shape")
+        self.entities = entities
             
-        self.x = sum(s.x for s in shapes)/len(shapes)
-        self.y = sum(s.x for s in shapes)/len(shapes)
-        self.z = sum(s.x for s in shapes)/len(shapes)
-
+        self.x = sum(e.x for e in shapes)/len(entities)
+        self.y = sum(e.y for e in shapes)/len(entities)
+        self.z = sum(e.z for e in shapes)/len(entities)
 
         # Bounding Box
-        self.x_min = min(s.x_min for s in shapes)
-        self.y_min = min(s.y_min for s in shapes)
-        self.z_min = min(s.z_min for s in shapes)
-        self.x_max = max(s.x_max for s in shapes)
-        self.y_max = max(s.y_max for s in shapes)
-        self.z_max = max(s.z_max for s in shapes)
+        self.x_min = min(e.x_min for e in entities)
+        self.y_min = min(e.y_min for e in entities)
+        self.z_min = min(e.z_min for e in entities)
+        self.x_max = max(e.x_max for e in entities)
+        self.y_max = max(e.y_max for e in entities)
+        self.z_max = max(e.z_max for e in entities)
 
     def check_collision(self, other): 
         # Quick bounding box rejection
@@ -65,12 +67,13 @@ class CompoundShape:
             self.z_min <= other.z_max and self.z_max >= other.z_min
         ):
             return False
+            
         # Fine-grained: Compound-Compound
         if isInstance(other, CompoundShape):
-            for s in self.shapes:
-                for o in other.shapes:
-                    if s.check_collision(o):
+            for e in self.entities:
+                for o in other.entities:
+                    if e.check_collision(o):
                         return True
         
         # Fine-grained: Compound-Simple
-        return any(s.check_collision(other) for s in self.shapes)
+        return any(e.check_collision(other) for e in self.entities)
