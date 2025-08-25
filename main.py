@@ -59,7 +59,7 @@ def animate():
     glutPostRedisplay()
     
 def keys(key, x, y):
-    global cam1
+    global cam1, chest
     if key == b'w':
         cam1.move(0, 1, 0)
     if key == b'a':
@@ -67,7 +67,9 @@ def keys(key, x, y):
     if key == b's':
         cam1.move(0, -1, 0)
     if key == b'd':
-        cam1.move(1, 0, 0)        
+        cam1.move(1, 0, 0)
+    if key == b'k':
+        chest.toggle() 
         
 
 def special_keys(key, x, y):
@@ -90,7 +92,7 @@ def main():
     # Entities
     global floor, cam1, chest
     floor = Box('toothpaste', 0, 0, 5, 0, 0, 0, 200, 800, 10)
-    cam1 = Cam3rd(50, -200, 300, 0, 0, 0, 0, 0, 1)
+    cam1 = Cam3rd(50, -200, 200, 0, 0, 0, 0, 0, 1)
     chest = Chest(0, 0, 10)
     
     # Event Listners

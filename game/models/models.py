@@ -8,6 +8,7 @@ import math
 COLORS = {
     "dark_grey": (0.1, 0.1, 0.1),
     'brown': (0.396, 0.067, 0),
+    'dark_brown': (0.251, 0.059, 0.024),
     'gold': (0.996, 0.839, 0),
     'red': (1, 0, 0),
     'toothpaste': (0.788, 0.933, 0.973),
@@ -168,26 +169,38 @@ class Chest(CompoundEntity):
     def __init__(self, x, y, ground_z, rx=0, ry=0, rz=0, w=60, d=40, h=40):
         base_h = 0.6*h
         base_z = ground_z + base_h/2
-        base = Box('brown', x, y, base_z, rx, ry, rz, w, d, base_h)
-
+        base = Box('dark_brown', x, y, base_z, rx, ry, rz, w, d, base_h)
+        ins_z = ground_z + base_h
+        ins_1 = Box('dark_brown', x, y, ins_z-10, rx, ry, rz, w-10, d-10, 0)
+        ins_2 = Box('brown', x, y, ins_z+10, rx, ry, rz, w-10, d-10, 0)        
         lid_h = h - base_h
         lid_z = ground_z + base_h + lid_h/2
-        lid = Box('gold', x, y, lid_z, rx, ry, rz, w, d, lid_h)
+        lid = Box('brown', x, y, lid_z, rx, ry, rz, w, d, lid_h)
 
-        super().__init__(base, lid)
+        super().__init__(base, ins_1, lid, ins_2)
 
         self.closed = True
 
     def open(self):
-        lid = self.entities[1]
-        lid.rotate_x(135, lid.y_max, lid.z_min)
+        ins_1 = self.entities[1]
+        lid = self.entities[2]
+        ins_2 = self.entities[3]
+        lid.rotate_x(-135, lid.y_max, lid.z_min)
+        ins_2.rotate_x(-135, lid.y_max, lid.z_min)
+        ins_1.color = get_color('gold')
+        ins_2.color = get_color('dark_brown')
         self.closed = False
 
     def close(self):
-        lid = self.entities[1]
-        lid.rotate_x(-135, lid.y_max, lid.z_min)
+        ins_1 = self.entities[1]
+        lid = self.entities[2]
+        ins_2 = self.entities[3]
+        lid.rotate_x(135, lid.y_max, lid.z_min)
+        ins_2.rotate_x(135, lid.y_max, lid.z_min)
+        ins_1.color = get_color('dark_brown')
+        ins_2.color = get_color('brown')
         self.closed = True
         
-    def toggle_chest(self):
+    def toggle(self):
         if self.closed: self.open()
         else: self.close()
