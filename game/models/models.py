@@ -7,9 +7,11 @@ import math
 
 COLORS = {
     "dark_grey": (0.1, 0.1, 0.1),
-    'brown': (0.271, 0.149, 0.125),
+    'brown': (0.396, 0.067, 0),
     'gold': (0.996, 0.839, 0),
-    'red': (1, 0, 0)
+    'red': (1, 0, 0),
+    'toothpaste': (0.788, 0.933, 0.973),
+    'dark_blue': (0.149, 0.278, 0.51)
 }
 
 def get_color(name):
@@ -164,17 +166,15 @@ class CompoundEntity(Entity):
 
 class Chest(CompoundEntity):
     def __init__(self, x, y, ground_z, rx=0, ry=0, rz=0, w=60, d=40, h=40):
-        base_c = get_color('brown')
-        base_h = 0.75*h
+        base_h = 0.6*h
         base_z = ground_z + base_h/2
-        base = Box(base_c, x, y, base_z, rx, ry, rz, w, d, base_h)
+        base = Box('brown', x, y, base_z, rx, ry, rz, w, d, base_h)
 
-        lid_c = get_color('gold')
         lid_h = h - base_h
         lid_z = ground_z + base_h + lid_h/2
-        lid = Box(lid_c, x, y, lid_z, rx, ry, rz, w, d, lid_h)
+        lid = Box('gold', x, y, lid_z, rx, ry, rz, w, d, lid_h)
 
-        super.__init__(self, base, lid)
+        super().__init__(base, lid)
 
         self.closed = True
 

@@ -48,11 +48,11 @@ def camera(cam):
     gluLookAt(*view)
 
 def display():
-    global cam1
+    global floor, cam1, chest
     glClear(GL_COLOR_BUFFER_BIT)
     camera(cam1)
-    global floor
     floor.draw()
+    chest.draw()
     glutSwapBuffers()
     
 def animate():
@@ -88,10 +88,10 @@ def main():
     glutCreateWindow(window_title)
 
     # Entities
-    global floor, cam1
-    floor = Box('red', 0, 0, 5, 0, 0, 0, 200, 800, 10)
+    global floor, cam1, chest
+    floor = Box('toothpaste', 0, 0, 5, 0, 0, 0, 200, 800, 10)
     cam1 = Cam3rd(300, -300, 300, 0, 0, 0, 0, 0, 1)
-    
+    chest = Chest(0, 0, 10)
     # Event Listners
     glutDisplayFunc(display)
     glutIdleFunc(animate)
