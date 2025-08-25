@@ -204,3 +204,52 @@ class Chest(CompoundEntity):
     def toggle(self):
         if self.closed: self.open()
         else: self.close()
+
+class Player(CompoundEntity):
+    def __init__(self, x, y, ground_z, rz):
+        w, h = 40, 80
+        leg_h = 0.4 * h
+        leg_w = 0.1 * w
+        leg_z = ground_z + leg_h/2
+        leg_off = w/4 - leg_w/2
+        hip_z = ground_z + leg_h
+        hip_w = w/2
+        hip_h = leg_w
+        body_h = leg_h
+        body_w = leg_w
+        body_z = ground_z + leg_h + body_h/2
+        sho_z = hip_z + body_h
+        sho_w = hip_w
+        arm_h = 0.7 * leg_h
+        arm_z = sho_z - arm_h/2
+        head_h = 0.1 * h
+        head_z = ground_z + h - head_h/2
+        
+
+        leg1 = Box('dark_blue', x-leg_off, y, leg_z, 0, 0, 0, leg_w, leg_h)
+        leg2 = Box('dark_blue', x+leg_off, y, leg_z, 0, 0, 0, leg_w, leg_h)
+        hip = Box('dark_blue', x, y, hip_z, 0, 0, 0, hip_w, hip_h, hip_h)
+        body = Box('dark_blue', x, y, body_z, 0, 0, 0, body_w, body_h)
+        sho = Box('dark_blue', x, y, sho_z, 0, 0, 0, sho_w, hip_h, hip_h)
+        arm1 = Box('dark_blue', x-leg_off, y, arm_z, 0, 0, 0, leg_w, arm_h)
+        arm2 = Box('dark_blue', x+leg_off, y, arm_z, 0, 0, 0, leg_w, arm_h)
+        head = Sphere('dark_blue', x, y, head_z, 0, 0, 0, head_h)
+        super().__init__(leg1, leg2, hip, body, sho, arm1, arm2, head)
+        self.anim = 0
+        self.anim_dir = 0.000001
+
+    def walk(self):
+        leg1 = self.entities[0]
+        leg2 = self.entities[1]
+
+        if self.anim > 1 or self.anim < -1:
+            self.anim_dir *= -1
+        self.anim += self.anim_dir
+        ay1 = (leg1.y_max + leg1.y_min)/2
+        ay2 = (leg2.y_max + leg2.y_min)/2
+
+        leg1.rotate_x(7*self.anim, ay1, leg1.z_max)
+        leg2.rotate_x(-7*self.anim, ay2, leg2.z_max)
+
+
+    

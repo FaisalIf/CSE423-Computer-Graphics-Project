@@ -39,7 +39,6 @@ class Cam3rd:
 #        return (self.entity.x, self.entity.y, self.entity.z,
 #                self.cen_x, self.cen_y, self.cen_z,
 #                self.up_x,  self.up_y,  self.up_z)
-        
 
 def camera(cam):
     glMatrixMode(GL_MODELVIEW)
@@ -48,14 +47,17 @@ def camera(cam):
     gluLookAt(*view)
 
 def display():
-    global floor, cam1, chest
+    global floor, cam1, chest, player
     glClear(GL_COLOR_BUFFER_BIT)
     camera(cam1)
     floor.draw()
     chest.draw()
+    player.draw()
     glutSwapBuffers()
     
 def animate():
+    global player
+    player.walk()
     glutPostRedisplay()
     
 def keys(key, x, y):
@@ -90,10 +92,11 @@ def main():
     glutCreateWindow(window_title)
 
     # Entities
-    global floor, cam1, chest
+    global floor, cam1, chest, player
     floor = Box('toothpaste', 0, 0, 5, 0, 0, 0, 200, 800, 10)
     cam1 = Cam3rd(50, -200, 200, 0, 0, 0, 0, 0, 1)
-    chest = Chest(0, 0, 10)
+    chest = Chest(0, 100, 10)
+    player = Player(0, 0, 10, 0)
     
     # Event Listners
     glutDisplayFunc(display)
