@@ -3,7 +3,19 @@ from OpenGL.GLU import *
 from OpenGL.GLUT import *
 import math
 
-from palette import get_color
+# ================================= Colors =====================================
+
+COLORS = {
+    "dark_grey": (0.1, 0.1, 0.1),
+}
+
+def get_color(name):
+    if name in COLORS:
+        return COLORS[name]
+    else:
+        raise KeyError(f'Color {name} not found in COLORS dictionary')
+
+# ==============================================================================
 
 class Entity:
     def __init__(self, x, y, z, rx, ry, rz, *dims):
