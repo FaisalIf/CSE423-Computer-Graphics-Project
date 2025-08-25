@@ -67,7 +67,7 @@ def keys(key, x, y):
     if key == b's':
         cam1.move(0, -1, 0)
     if key == b'd':
-        cam1.move(1, 0, 1)        
+        cam1.move(1, 0, 0)        
         
 
 def special_keys(key, x, y):
@@ -90,8 +90,9 @@ def main():
     # Entities
     global floor, cam1, chest
     floor = Box('toothpaste', 0, 0, 5, 0, 0, 0, 200, 800, 10)
-    cam1 = Cam3rd(300, -300, 300, 0, 0, 0, 0, 0, 1)
+    cam1 = Cam3rd(50, -200, 300, 0, 0, 0, 0, 0, 1)
     chest = Chest(0, 0, 10)
+    
     # Event Listners
     glutDisplayFunc(display)
     glutIdleFunc(animate)
@@ -100,7 +101,7 @@ def main():
     glutMouseFunc(clicks)
 
     # Camera Setup
-    fov_y, aspect_ratio, near, far = 120, (win_w/win_h), 0.1, 5000
+    fov_y, aspect_ratio, near, far = 77.3, (win_w/win_h), 0.1, 5000
     glMatrixMode(GL_PROJECTION)
     gluPerspective(fov_y, aspect_ratio, near, far)
 
