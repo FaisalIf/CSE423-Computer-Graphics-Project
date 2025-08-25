@@ -1,15 +1,20 @@
-from OpenGL.GL import *
-from OpenGL.GLUT import *
-from OpenGL.GLU import *
+from entities import *
 from ..math3d import add, sub, mul, norm, length
 
 
-class Entity:
-    def __init__(self):
+class LivingEntity(CompoundEntity):
+    def __init__(self, x, y, z, length, breadth, deg):
+        hs 
+        hx, hy= x, y
+        head = Sphere()
         self.pos = [0.0, 0.0, 0.0]
         self.vel = [0.0, 0.0, 0.0]
         self.radius = 10.0
         self.alive = True
+
+        # Head:
+        size = 30
+        hx =
 
     def update(self, dt, world):
         self.pos[0] += self.vel[0] * dt
