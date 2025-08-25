@@ -10,8 +10,7 @@ COLORS = {
 }
 
 def get_color(name):
-    if name in COLORS:
-        return COLORS[name]
+    return COLORS[name]
 
 # ==============================================================================
 
