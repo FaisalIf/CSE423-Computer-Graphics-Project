@@ -7,6 +7,9 @@ import math
 
 COLORS = {
     "dark_grey": (0.1, 0.1, 0.1),
+    'brown': (0.271, 0.149, 0.125),
+    'gold': (0.996, 0.839, 0),
+    'red': (1, 0, 0)
 }
 
 def get_color(name):
@@ -158,3 +161,33 @@ class CompoundEntity(Entity):
     def rotate_z(self, rz):
         self.rz += rz
         for e in self.entities: e.rotate_z(rz, self.x, self.y)
+
+class Chest(CompoundEntity):
+    def __init__(self, x, y, ground_z, rx=0, ry=0, rz=0, w=60, d=40, h=40):
+        base_c = get_color('brown')
+        base_h = 0.75*h
+        base_z = ground_z + base_h/2
+        base = Box(base_c, x, y, base_z, rx, ry, rz, w, d, base_h)
+
+        lid_c = get_color('gold')
+        lid_h = h - base_h
+        lid_z = ground_z + base_h + lid_h/2
+        lid = Box(lid_c, x, y, lid_z, rx, ry, rz, w, d, lid_h)
+
+        super.__init__(self, base, lid)
+
+        self.closed = True
+
+    def open(self):
+        lid = self.entities[1]
+        lid.rotate_x(135, lid.y_max, lid.z_min)
+        self.closed = False
+
+    def close(self):
+        lid = self.entities[1]
+        lid.rotate_x(-135, lid.y_max, lid.z_min)
+        self.closed = True
+        
+    def toggle_chest(self):
+        if self.closed: self.open()
+        else: self.close()

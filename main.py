@@ -1,16 +1,29 @@
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-from palette import get_color
+from game.models.models import *
+
+def camera():
+    glMatrixMode(GL_MODELVIEW)
+    glLoadIdentity()
+    gluLookAt(300, -300, 300,
+              0,    0,   0,
+              0,    0,   1)
 
 def display():
     glClear(GL_COLOR_BUFFER_BIT)
+    camera()
+    global floor
+    floor.draw()
     glutSwapBuffers()
     
 def animate():
     glutPostRedisplay()
     
 def keys(key, x, y):
+    pass
+
+def special_keys(key, x, y):
     pass
     
 def clicks(button, state, x, y):
@@ -26,12 +39,15 @@ def main():
     glutInitWindowSize(win_w, win_h)
     glutInitWindowPosition(win_x, win_y)
     glutCreateWindow(window_title)
-    
+
+    # Entities
+    global floor
+    floor = Box('red', 0, 0, 5, 0, 0, 0, 200, 800, 10)
     # Event Listners
     glutDisplayFunc(display)
     glutIdleFunc(animate)
     glutKeyboardFunc(keys)
-    glutSpecialFunc(keys)
+    glutSpecialFunc(special_keys)
     glutMouseFunc(clicks)
 
     # Camera Setup
