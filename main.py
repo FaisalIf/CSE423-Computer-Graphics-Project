@@ -22,8 +22,13 @@ CAM_THIRD  = 1
 camera_mode = CAM_THIRD
 
 # third-person camera state (follows player)
-third_cam_offset = [120, -300, 220]  # relative to player
-third_cam_lock_z_axis = True  # z considered up
+# Lock Z (height) and move only in X/Y based on player's aim.
+third_cam_back = 160.0   # how far behind the player (along -forward)
+third_cam_side = 0.0     # lateral offset (right is +)
+third_cam_height = 90.0  # fixed height above player
+camera_smooth = 0.15     # smoothing factor for camera follow
+cam_eye = None           # smoothed eye position
+cam_cen = None           # smoothed center position
 
 # active perspective FOV
 fovY = fovY_default
@@ -51,7 +56,10 @@ def get_color(name):
 
 # --------------------------- UI Text ---------------------------
 
-def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
+def draw_text(x, y, text, font=None):
+    if font is None:
+        # default to GLUT helvetica if available (resolved at runtime)
+        font = globals().get('GLUT_BITMAP_HELVETICA_18', None)
     glColor3f(1,1,1)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -61,8 +69,9 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18):
     glPushMatrix()
     glLoadIdentity()
     glRasterPos2f(x, y)
-    for ch in text:
-        glutBitmapCharacter(font, ord(ch))
+    if font is not None:
+        for ch in text:
+            glutBitmapCharacter(font, ord(ch))
     glPopMatrix()
     glMatrixMode(GL_PROJECTION)
     glPopMatrix()
@@ -498,6 +507,7 @@ current_level = 1
 # --------------------------- Utilities ------------------------
 
 def camera():
+    global cam_eye, cam_cen
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
 
@@ -508,22 +518,34 @@ def camera():
     glMatrixMode(GL_MODELVIEW)
 
     if camera_mode == CAM_THIRD:
-        # follow player with offset in player's yaw direction for x/y
-        offx, offy, offz = third_cam_offset
-        # rotate offset around Z by player's yaw
+        # follow player with planar offsets relative to yaw, z locked
         yaw_rad = math.radians(player.yaw)
-        rx = offx*math.cos(yaw_rad) - offy*math.sin(yaw_rad)
-        ry = offx*math.sin(yaw_rad) + offy*math.cos(yaw_rad)
-        eye = (player.x + rx, player.y + ry, player.z + offz)
-        cen = (player.x, player.y, player.z+40)
-        gluLookAt(eye[0],eye[1],eye[2], cen[0],cen[1],cen[2], 0,0,1)
+        fx, fy = math.cos(yaw_rad), math.sin(yaw_rad)  # forward
+        rx, ry = -math.sin(yaw_rad), math.cos(yaw_rad) # right
+        des_eye = (
+            player.x - fx*third_cam_back + rx*third_cam_side,
+            player.y - fy*third_cam_back + ry*third_cam_side,
+            player.z + third_cam_height
+        )
+        des_cen = (player.x, player.y, player.z+40)
+        # initialize smoothing targets
+        if cam_eye is None: cam_eye = list(des_eye)
+        if cam_cen is None: cam_cen = list(des_cen)
+        # smooth follow (LERP)
+        cam_eye[0] += (des_eye[0]-cam_eye[0])*camera_smooth
+        cam_eye[1] += (des_eye[1]-cam_eye[1])*camera_smooth
+        cam_eye[2] += (des_eye[2]-cam_eye[2])*camera_smooth
+        cam_cen[0] += (des_cen[0]-cam_cen[0])*(camera_smooth*1.2)
+        cam_cen[1] += (des_cen[1]-cam_cen[1])*(camera_smooth*1.2)
+        cam_cen[2] += (des_cen[2]-cam_cen[2])*(camera_smooth*1.2)
+        gluLookAt(cam_eye[0],cam_eye[1],cam_eye[2], cam_cen[0],cam_cen[1],cam_cen[2], 0,0,1)
     else:
-        # first person from head
+        # first person from head (no smoothing for responsiveness)
         head = player.head_entity()
         ex,ey,ez = head.x, head.y, head.z
-        # look direction from yaw
         dx = math.cos(math.radians(player.yaw))
         dy = math.sin(math.radians(player.yaw))
+        cam_eye = None; cam_cen = None  # reset smoothing when switching back later
         gluLookAt(ex,ey,ez, ex+dx*50, ey+dy*50, ez, 0,0,1)
 
 # --------------------------- Level Setup ----------------------
@@ -712,7 +734,7 @@ def draw_menu():
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     # dark overlay
-    glColor4f(0,0,0,0.6)
+    glColor3f(0,0,0)
     glBegin(GL_QUADS)
     glVertex2f(0,0); glVertex2f(WIN_W,0); glVertex2f(WIN_W,WIN_H); glVertex2f(0,WIN_H)
     glEnd()
@@ -884,13 +906,17 @@ def key_up(key, x, y):
 
 
 def special_keys(key, x, y):
-    # arrow keys move camera in third-person mode
-    global third_cam_offset
+    # arrow keys adjust third-person camera in the X/Y plane (Z locked)
+    global third_cam_back, third_cam_side
     if camera_mode == CAM_THIRD:
-        if key == GLUT_KEY_LEFT:  third_cam_offset[0] -= 5
-        if key == GLUT_KEY_RIGHT: third_cam_offset[0] += 5
-        if key == GLUT_KEY_UP:    third_cam_offset[2] += 5
-        if key == GLUT_KEY_DOWN:  third_cam_offset[2] -= 5
+        if key == GLUT_KEY_LEFT:
+            third_cam_side -= 5
+        if key == GLUT_KEY_RIGHT:
+            third_cam_side += 5
+        if key == GLUT_KEY_UP:
+            third_cam_back = max(60.0, third_cam_back - 5)  # move closer
+        if key == GLUT_KEY_DOWN:
+            third_cam_back += 5  # move further back
     # level test shortcuts
     if key == GLUT_KEY_F1: setup_level(1)
     if key == GLUT_KEY_F2: setup_level(2)
@@ -930,8 +956,16 @@ def set_fov(scope):
 
 
 def set_camera_mode(mode):
-    global camera_mode
+    global camera_mode, cam_eye, cam_cen
     camera_mode = mode
+    # reset smoothing accumulators when switching modes to avoid laggy snaps
+    cam_eye = None
+    cam_cen = None
+    # hide head in first person to avoid blocking view; show in third
+    if mode == CAM_FIRST:
+        player.ensure_head_visibility(False)
+    else:
+        player.ensure_head_visibility(True)
 
 
 def toggle_perspective():
@@ -1004,14 +1038,17 @@ def update_movement():
     # WASD planar move
     dx=0; dy=0
     sp = player.speed
+    # yaw update from A/D keys (rotate while held)
+    yaw_step = 2.2  # degrees per tick while held
+    if moving['a']:
+        player.yaw = (player.yaw - yaw_step) % 360
+    if moving['d']:
+        player.yaw = (player.yaw + yaw_step) % 360
     # convert WASD relative to yaw
     dir_forward = math.radians(player.yaw)
     fx, fy = math.cos(dir_forward), math.sin(dir_forward)
-    rx, ry = -math.sin(dir_forward), math.cos(dir_forward)  # right vector
     if moving['w']: dx += fx*sp; dy += fy*sp
     if moving['s']: dx -= fx*sp; dy -= fy*sp
-    if moving['a']: dx -= rx*sp; dy -= ry*sp
-    if moving['d']: dx += rx*sp; dy += ry*sp
     if dx or dy:
         player.move(dx,dy)
 
