@@ -702,6 +702,20 @@ def draw_radar():
     glEnd()
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
+def draw_hud_stats():
+    # Fixed-position HUD text in top-left corner using 2D orthographic projection
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+    glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+    glColor3f(1,1,1)
+    x, y = 10, WIN_H - 24
+    text = f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}  Best: {int(best_score)}  Loads:{load_uses_left}"
+    glRasterPos2f(x, y)
+    font = globals().get('GLUT_BITMAP_HELVETICA_18', None)
+    if font is not None:
+        for ch in text:
+            glutBitmapCharacter(font, ord(ch))
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
+
 # --------------------------- Drawing --------------------------
 
 def draw_floor():
@@ -732,7 +746,7 @@ def display():
     # HUD
     draw_inventory_bar()
     draw_radar()
-    draw_text(10, WIN_H-30, f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}  Best: {int(best_score)}  Loads:{load_uses_left}")
+    draw_hud_stats()
     if scoped:
         draw_crosshair(True)
     else:
