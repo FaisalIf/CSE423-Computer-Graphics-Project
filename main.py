@@ -359,7 +359,7 @@ class StickPlayer(CompoundEntity):
         glPushMatrix(); glTranslatef(-self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1); glPopMatrix()
         glPushMatrix(); glTranslatef( self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
         # weapon
-        glPushMatrix(); glTranslatef(0, 0, self.arm_h - 2); glRotatef(90, 0, 1, 0); glColor3f(0.3,0.3,0.3); gluCylinder(Sphere.quadric, 3, 3, 30, 12, 1); glPopMatrix()
+        glPushMatrix(); glTranslatef(0, 0, self.arm_h - 2); glRotatef(90, 1, 0, 0); glColor3f(0.3,0.3,0.3); gluCylinder(Sphere.quadric, 3, 3, 30, 12, 1); glPopMatrix()
         glPopMatrix()
 
         # Head
