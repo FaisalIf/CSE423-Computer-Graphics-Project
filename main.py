@@ -1046,7 +1046,7 @@ def shoot_handgun():
     player.inventory['handgun_ammo']-=1
     # bullet spawns at player head / gun tip forward
     head = player.head_entity()
-    ang = math.radians(player.yaw)
+    ang = math.radians((player.yaw - 90) % 360)
     vx = math.cos(ang)*8.0
     vy = math.sin(ang)*8.0
     dmg = player.damage
