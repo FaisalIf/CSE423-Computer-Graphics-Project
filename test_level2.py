@@ -1,11 +1,11 @@
-from OpenGL.GL import *
-from OpenGL.GLUT import *
-from OpenGL.GLU import *
+"""
+Level 2 test runner for the single-file prototype in `main.py`.
+"""
 
-from game.engine import GameEngine
-from game.levels.level2 import create_scene
+import main as game
 
 
 if __name__ == "__main__":
-    engine = GameEngine(create_scene())
-    engine.run(title=b"Level 2 Test")
+    setattr(game, "CURRENT_LEVEL", 2)
+    game.rand_var = 222
+    game.main()
