@@ -1,6 +1,7 @@
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
+from OpenGL import GLUT as GLUTmod
 
 # =============================================================
 # Demons & Portals — Minimal 3D FPS-Puzzle (single-file, KISS)
@@ -21,135 +22,102 @@ CAM_FIRST  = 0
 CAM_THIRD  = 1
 camera_mode = CAM_THIRD
 
-# third-person camera state (follows player)
-# Lock Z (height) and move only in X/Y based on player's aim.
-third_cam_back = 160.0   # how far behind the player (along -forward)
-third_cam_side = 0.0     # lateral offset (right is +)
-third_cam_height = 90.0  # fixed height above player
-camera_smooth = 0.15     # smoothing factor for camera follow
-cam_eye = None           # smoothed eye position
-cam_cen = None           # smoothed center position
-
-# active perspective FOV
+# current FOV; updated when scoping
 fovY = fovY_default
 
-# --------------------------- Colors ----------------------------
-COLORS = {
-    "dark_grey": (0.1, 0.1, 0.1),
-    'brown': (0.396, 0.067, 0),
-    'dark_brown': (0.251, 0.059, 0.024),
-    'gold': (0.996, 0.839, 0),
-    'red': (1, 0, 0),
-    'toothpaste': (0.788, 0.933, 0.973),
-    'dark_blue': (0.149, 0.278, 0.51),
-    'blue': (0.2, 0.5, 1.0),
-    'cyan': (0.0, 0.9, 0.9),
-    'green': (0.0, 1.0, 0.0),
-    'white': (1.0, 1.0, 1.0),
-    'black': (0.0, 0.0, 0.0),
-    'yellow': (1.0, 1.0, 0.0),
-    'magenta': (1.0, 0.0, 1.0),
-    # New colors for the player
-    'light_brown': (0.87, 0.72, 0.53),
-    'orange': (1.0, 0.55, 0.0),
-    'light_blue': (0.52, 0.74, 0.88),
-    'grey': (0.6, 0.6, 0.6)
-}
+# third-person camera parameters
+third_cam_back = 120.0
+third_cam_side = 30.0
+third_cam_height = 120.0
+camera_smooth = 0.15
+cam_eye = None
+cam_cen = None
 
-def get_color(name):
-    return COLORS[name]
-
-# --------------------------- UI Text ---------------------------
-
-def draw_text(x, y, text, font=None):
-    if font is None:
-        # default to GLUT helvetica if available (resolved at runtime)
-        font = globals().get('GLUT_BITMAP_HELVETICA_18', None)
-    glColor3f(1,1,1)
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    gluOrtho2D(0, WIN_W, 0, WIN_H)
-    glMatrixMode(GL_MODELVIEW)
-    glPushMatrix()
-    glLoadIdentity()
-    glRasterPos2f(x, y)
-    if font is not None:
-        for ch in text:
-            glutBitmapCharacter(font, ord(ch))
-    glPopMatrix()
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
-
-# --------------------------- Math ------------------------------
+# --------------------------- Utils / Low-level ----------------
 
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
-# --------------------------- Entities --------------------------
+
+_COLORS = {
+    'grey': (0.6, 0.6, 0.6),
+    'dark_grey': (0.15, 0.15, 0.15),
+    'orange': (1.0, 0.55, 0.0),
+    'light_blue': (0.52, 0.74, 0.88),
+    'light_brown': (0.87, 0.72, 0.53),
+    'dark_brown': (0.35, 0.2, 0.1),
+    'brown': (0.55, 0.33, 0.16),
+    'gold': (0.9, 0.75, 0.2),
+    'red': (0.9, 0.1, 0.1),
+    'magenta': (0.9, 0.1, 0.9),
+    'yellow': (0.95, 0.95, 0.1),
+    'cyan': (0.1, 0.95, 0.95),
+    'toothpaste': (0.1, 0.6, 0.6),
+    'black': (0.0, 0.0, 0.0),
+    'white': (1.0, 1.0, 1.0),
+}
+
+
+def get_color(name):
+    return _COLORS.get(name, (1.0, 1.0, 1.0))
+
+
+def draw_text(x, y, text):
+    glColor3f(1, 1, 1)
+    glRasterPos2f(x, y)
+    for ch in str(text):
+        glutBitmapCharacter(GLUTmod.GLUT_BITMAP_9_BY_15, ord(ch))
+
+
+# --------------------------- Core Entity ---------------------
 
 class Entity:
-    def __init__(self, x, y, z, rx, ry, rz, *dims):
-        # Dimensions
-        if len(dims) == 1:
-            self.width = self.depth = self.height = dims[0]
-        elif len(dims) == 2:
-            self.width = self.depth = dims[0]
-            self.height = dims[1]
-        elif len(dims) == 3:
-            self.width, self.depth, self.height = dims
-
-        # Center
+    def __init__(self, x, y, z, rx=0, ry=0, rz=0, width=1, depth=1, height=1):
         self.x = x; self.y = y; self.z = z
         self.rx = rx; self.ry = ry; self.rz = rz
-
-        # Bounding box (AABB — not updated on rotation intentionally)
-        self.x_min = x - self.width/2
-        self.y_min = y - self.depth/2
-        self.z_min = z - self.height/2
-        self.x_max = self.x_min + self.width
-        self.y_max = self.y_min + self.depth
-        self.z_max = self.z_min + self.height
+        self.width = width; self.depth = depth; self.height = height
+        self.bbox_sync()
 
     def bbox_sync(self):
-        # Only used if we change center/scale directly (not with rotation)
-        self.x_min = self.x - self.width/2
-        self.y_min = self.y - self.depth/2
-        self.z_min = self.z - self.height/2
-        self.x_max = self.x_min + self.width
-        self.y_max = self.y_min + self.depth
-        self.z_max = self.z_min + self.height
+        # Treat (x,y,z) as center of the volume for AABB
+        self.x_min = self.x - self.width/2;  self.x_max = self.x + self.width/2
+        self.y_min = self.y - self.depth/2;  self.y_max = self.y + self.depth/2
+        self.z_min = self.z - self.height/2; self.z_max = self.z + self.height/2
+
+    def draw(self):
+        pass
 
     def check_collision(self, other):
-        return (self.x_min <= other.x_max and self.x_max >= other.x_min and
-                self.y_min <= other.y_max and self.y_max >= other.y_min and
-                self.z_min <= other.z_max and self.z_max >= other.z_min)
+        return not (
+            self.x_max < other.x_min or self.x_min > other.x_max or
+            self.y_max < other.y_min or self.y_min > other.y_max or
+            self.z_max < other.z_min or self.z_min > other.z_max
+        )
 
-    # anchored rotations (AABB unchanged by design — symmetric models preferred)
-    def rotate_x(self, rx, ay=0, az=0):
+    # Rotations around pivot points in the respective planes
+    def rotate_x(self, rx, ay, az):
         self.rx += rx
+        rad = math.radians(rx)
         dy = self.y - ay
         dz = self.z - az
-        rad = math.radians(rx)
         self.y = ay + dy * math.cos(rad) - dz * math.sin(rad)
         self.z = az + dy * math.sin(rad) + dz * math.cos(rad)
         self.bbox_sync()
 
-    def rotate_y(self, ry, ax=0, az=0):
+    def rotate_y(self, ry, ax, az):
         self.ry += ry
+        rad = math.radians(ry)
         dx = self.x - ax
         dz = self.z - az
-        rad = math.radians(ry)
         self.x = ax + dx * math.cos(rad) + dz * math.sin(rad)
         self.z = az - dx * math.sin(rad) + dz * math.cos(rad)
         self.bbox_sync()
 
-    def rotate_z(self, rz, ax=0, ay=0):
+    def rotate_z(self, rz, ax, ay):
         self.rz += rz
+        rad = math.radians(rz)
         dx = self.x - ax
         dy = self.y - ay
-        rad = math.radians(rz)
         self.x = ax + dx * math.cos(rad) - dy * math.sin(rad)
         self.y = ay + dx * math.sin(rad) + dy * math.cos(rad)
         self.bbox_sync()
@@ -290,78 +258,56 @@ class Chest(CompoundEntity):
 
 class StickPlayer(CompoundEntity):
     def __init__(self, x, y, ground_z, rz):
-        # Overall proportions
-        total_h = 120.0
-        leg_h = 45.0
-        body_h = 48.0
-        head_r = 14.0
-        arm_h = 35.0
-        limb_r = 5.0
-        shoulder_span = 32.0
+        # Proportions inspired by reference
+        self.leg_h = 40.0
+        self.body_h = 40.0
+        self.head_r = 12.0
+        self.arm_h = 40.0
+        self.arm_r = 5.0
+        self.leg_r = 7.0
+        self.body_r = 20.0
+        self.shoulder_span = 46.0
 
-        # Z anchors and stacking
-        hip_z = ground_z + leg_h                 # top of legs
-        body_center_z = hip_z + body_h/2         # body center
-        shoulder_z = hip_z + body_h              # top of body
-        head_center_z = shoulder_z + head_r + 4.0
+        hip_z = ground_z + self.leg_h
+        body_center_z = hip_z + self.body_h/2
+        shoulder_z = hip_z + self.body_h
+        head_center_z = shoulder_z + self.head_r + 4.0
 
-        # Legs: pivot at hip (top anchor), extend downward
-        leg_left = Cylinder('grey', x - 10, y, hip_z, 0, 0, 0, radius=limb_r, height=leg_h, anchor='top')
-        leg_right = Cylinder('grey', x + 10, y, hip_z, 0, 0, 0, radius=limb_r, height=leg_h, anchor='top')
-
-        # Body: centered cylinder with bigger radius
-        body = Cylinder('orange', x, y, body_center_z, 0, 0, 0, radius=10.0, height=body_h, anchor='center')
-
-        # Arms: pivot at shoulders (top anchor), extend downward; hand color slightly deeper (light_blue adjusted above)
-        arm_left = Cylinder('light_blue', x - shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=limb_r, height=arm_h, anchor='top')
-        arm_right = Cylinder('light_blue', x + shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=limb_r, height=arm_h, anchor='top')
-
-        # Head (sphere, light brown)
-        head = Sphere('light_brown', x, y, head_center_z, 0, 0, 0, head_r)
-
+        # Build components for bounds/collisions
+        leg_left = Cylinder('grey', x - 7, y, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
+        leg_right = Cylinder('grey', x + 7, y, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
+        body = Cylinder('orange', x, y, body_center_z, 0, 0, 0, radius=self.body_r, height=self.body_h, anchor='center')
+        arm_left = Cylinder('light_blue', x - self.shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
+        arm_right = Cylinder('light_blue', x + self.shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
+        head = Sphere('light_brown', x, y, head_center_z, 0, 0, 0, self.head_r)
         super().__init__(leg_left, leg_right, body, arm_left, arm_right, head)
 
-        # Save parameters for later use
-        self.leg_h = leg_h
         self.on_ground_z = ground_z
-
-        # Gameplay and animation properties
         self.anim = 0.0
         self.anim_dir = 0.015
-        self.speed = 3.0
+        self.speed = 1.2
         self.jump_v = 0.0
         self.health = 100
         self.damage = 10
-        self.inventory = {
-            'handgun_ammo': 24,
-            'keys': 1,
-            'Nourishment': 0,
-            'Aegis': 0,
-            'Shard': 0,
-            'portalgun': 0,
-        }
-        self.active_slot = 1  # 1..9
+        self.inventory = {'handgun_ammo':24,'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
+        self.active_slot = 1
         self.head_visible = True
-        self.yaw = 0  # facing (deg)
+        self.yaw = 0
 
     def head_entity(self):
         return self.entities[-1]
 
     def ensure_head_visibility(self, show):
         self.head_visible = show
-        self.head_entity().color = get_color('light_brown') if show else get_color('black')
 
     def walk_anim_tick(self):
-        # Deterministic swing without cumulative transforms: set rx directly
-        leg_left = self.entities[0]
-        leg_right = self.entities[1]
+        # swing legs a bit
+        leg_left = self.entities[0]; leg_right = self.entities[1]
         if self.anim > 1 or self.anim < -1:
             self.anim_dir *= -1
         self.anim += self.anim_dir
         swing = 12.0 * math.sin(self.anim * math.pi)
-        # Set local rotation angles only (draw uses anchor pivot), avoids drift
-        leg_left.rx = swing
-        leg_right.rx = -swing
+        leg_left.rx = swing; leg_right.rx = -swing
 
     def move(self, dx, dy):
         self.x += dx; self.y += dy
@@ -370,16 +316,14 @@ class StickPlayer(CompoundEntity):
         self.bbox_sync()
 
     def stand_center_z(self):
-        # grounded center at half leg height
         return self.on_ground_z + 0.5*self.leg_h
 
     def jump(self):
-        if abs(self.z - self.stand_center_z()) < 0.2:  # simple grounded check
+        if abs(self.z - self.stand_center_z()) < 0.2:
             self.jump_v = 6.5
 
     def physics(self):
         if self.jump_v != 0:
-            # update vertical (apply gravity)
             self.z += self.jump_v
             for e in self.entities:
                 e.z += self.jump_v; e.bbox_sync()
@@ -393,12 +337,37 @@ class StickPlayer(CompoundEntity):
         self.bbox_sync()
 
     def draw(self):
+        hip_z = self.on_ground_z + self.leg_h
+        shoulder_z = hip_z + self.body_h
+        head_center_z = shoulder_z + self.head_r + 4.0
+
+        glPushMatrix()
+        glTranslatef(self.x, self.y, 0)
+        glRotatef(self.yaw, 0, 0, 1)
+
+        # Legs
+        glColor3f(*get_color('grey'))
+        glPushMatrix(); glTranslatef(-7, 0, hip_z - self.leg_h); gluCylinder(Sphere.quadric, self.leg_r, self.leg_r, self.leg_h, 16, 1); glPopMatrix()
+        glPushMatrix(); glTranslatef( 7, 0, hip_z - self.leg_h); gluCylinder(Sphere.quadric, self.leg_r, self.leg_r, self.leg_h, 16, 1); glPopMatrix()
+
+        # Body
+        glColor3f(*get_color('orange'))
+        glPushMatrix(); glTranslatef(0, 0, hip_z); gluCylinder(Sphere.quadric, self.body_r, self.body_r, self.body_h, 16, 1); glPopMatrix()
+
+        # Arms and simple stick weapon on right hand
+        glColor3f(*get_color('light_blue'))
+        glPushMatrix(); glTranslatef(-self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1); glPopMatrix()
+        glPushMatrix(); glTranslatef( self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
+        # weapon
+        glPushMatrix(); glTranslatef(0, 0, self.arm_h - 2); glRotatef(90, 0, 1, 0); glColor3f(0.3,0.3,0.3); gluCylinder(Sphere.quadric, 3, 3, 30, 12, 1); glPopMatrix()
+        glPopMatrix()
+
+        # Head
         if self.head_visible:
-            super().draw()
-        else:
-            # draw all but the last entity (head)
-            for e in self.entities[:-1]:
-                e.draw()
+            glColor3f(*get_color('light_brown'))
+            glPushMatrix(); glTranslatef(0, 0, head_center_z); gluSphere(Sphere.quadric, self.head_r, 10, 10); glPopMatrix()
+
+        glPopMatrix()
 
 class Enemy(CompoundEntity):
     def __init__(self, x, y, ground_z, is_boss=False):
@@ -1087,7 +1056,7 @@ def update_movement():
     dx=0; dy=0
     sp = player.speed
     # yaw update from A/D keys (rotate while held)
-    yaw_step = 1.4  # degrees per tick while held (slower)
+    yaw_step = 0.8  # degrees per tick while held (even slower)
     if moving['a']:
         player.yaw = (player.yaw - yaw_step) % 360
     if moving['d']:
