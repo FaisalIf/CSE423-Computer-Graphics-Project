@@ -131,7 +131,12 @@ class Shape3D(Entity):
 
 class Sphere(Shape3D):
     def __init__(self, color, x, y, z, rx, ry, rz, *dims):
+        # If only a single radius was passed, expand to (r, r, r)
+        if len(dims) == 1:
+            r = dims[0]
+            dims = (r, r, r)
         super().__init__(color, x, y, z, rx, ry, rz, *dims)
+
     def draw(self):
         glColor3f(*self.color)
         glPushMatrix()
@@ -139,8 +144,10 @@ class Sphere(Shape3D):
         glRotatef(self.rx, 1, 0, 0)
         glRotatef(self.ry, 0, 1, 0)
         glRotatef(self.rz, 0, 0, 1)
+        # Use the three stored dimensions; for heads these are equal so it's round
         glScalef(self.width, self.depth, self.height)
-        gluSphere(self.quadric, 1, 10, 16)
+        # Higher tessellation for a smoother, circular look
+        gluSphere(self.quadric, 1, 24, 24)
         glPopMatrix()
 
 class Box(Shape3D):
@@ -269,14 +276,15 @@ class StickPlayer(CompoundEntity):
         self.shoulder_span = 46.0
 
         hip_z = ground_z + self.leg_h
-        body_center_z = hip_z + self.body_h/2
         shoulder_z = hip_z + self.body_h
         head_center_z = shoulder_z + self.head_r + 4.0
 
         # Build components for bounds/collisions
         leg_left = Cylinder('grey', x - 7, y, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
         leg_right = Cylinder('grey', x + 7, y, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
-        body = Cylinder('orange', x, y, body_center_z, 0, 0, 0, radius=self.body_r, height=self.body_h, anchor='center')
+        # Body rises upward from hip level
+        body = Cylinder('orange', x, y, hip_z, 0, 0, 0, radius=self.body_r, height=self.body_h, anchor='base')
+        # Arms hang down from the shoulder line
         arm_left = Cylinder('light_blue', x - self.shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
         arm_right = Cylinder('light_blue', x + self.shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
         head = Sphere('light_brown', x, y, head_center_z, 0, 0, 0, self.head_r)
@@ -371,48 +379,84 @@ class StickPlayer(CompoundEntity):
 
 class Enemy(CompoundEntity):
     def __init__(self, x, y, ground_z, is_boss=False):
-        body = Sphere('red' if not is_boss else 'magenta', x, y, ground_z+30, 0,0,0, 18)
-        head = Sphere('red' if not is_boss else 'yellow', x, y, ground_z+50, 0,0,0, 10)
-        super().__init__(body, head)
+        # Randomized body/head colors for variety; boss gets a distinct scheme
+        if is_boss:
+            body_col, head_col = 'magenta', 'yellow'
+        else:
+            palette = ['red', 'orange', 'light_blue', 'cyan', 'yellow']
+            body_col = random.choice(palette)
+            head_col = random.choice([c for c in palette if c != body_col])
+
+        # Proportions similar to player
+        body_h = 40.0
+        body_r = 20.0
+        head_r = 20.0
+
+        # Core parts
+        body = Cylinder(body_col, x, y, ground_z, 0, 0, 0, radius=body_r, height=body_h, anchor='base')
+        head = Sphere(head_col, x, y, ground_z + body_h + head_r, 0, 0, 0, head_r)
+
+        # Two thin, black, upward-facing hands, slightly farther than body radius
+        hand_r = 4.0
+        hand_h = 30.0
+        hx = body_r + 5.0
+        handL = Cylinder('black', x - hx, y, ground_z + body_h, 0, 0, 0, radius=hand_r, height=hand_h, anchor='base')
+        handR = Cylinder('black', x + hx, y, ground_z + body_h, 0, 0, 0, radius=hand_r, height=hand_h, anchor='base')
+
+        super().__init__(body, head, handL, handR)
+
+        # Behavior/visuals
         self.is_boss = is_boss
-        self.base_color = body.color
+        self.base_color = get_color(body_col)
         self.pulse = 0.0
-        self.speed = 0 if not is_boss else 0
+        self.speed = 0.1 if not is_boss else 0
         self.hp = 20 if not is_boss else 120
         self.projectiles = []  # boss only
         self.shoot_cool = 0
+        self._pulse_scale = 1.0
+
     def update(self, target):
-        # pulse
-        self.pulse += 0.1
-        s = 1.0 + 0.05*math.sin(self.pulse)
+        # Very slow pulse
+        self.pulse += 0.003
+        s = 1.0 + 0.12 * math.sin(self.pulse)
+        self._pulse_scale = s
+        # Keep bbox updated for collisions
         for e in self.entities:
             e.width *= s; e.depth *= s; e.height *= s; e.bbox_sync()
             e.width /= s; e.depth /= s; e.height /= s
-        # chase
+
+        # chase (speed is 0 for now per user setting)
         dx = target.x - self.x
         dy = target.y - self.y
-        d = math.hypot(dx, dy)+1e-6
-        vx = self.speed * (dx/d)
-        vy = self.speed * (dy/d)
+        d = math.hypot(dx, dy) + 1e-6
+        vx = self.speed * (dx / d)
+        vy = self.speed * (dy / d)
         self.x += vx; self.y += vy
         for e in self.entities:
             e.x += vx; e.y += vy; e.bbox_sync()
         self.bbox_sync()
+
         if self.is_boss:
             self.shoot_cool -= 1
             if self.shoot_cool <= 0:
                 self.shoot_cool = 90
-                # shoot projectile toward player
-                bvx = 3.0 * (dx/d)
-                bvy = 3.0 * (dy/d)
-                self.projectiles.append({'x': self.x, 'y': self.y, 'z': self.z+20, 'vx': bvx, 'vy': bvy, 'life': 400})
-            # update boss projectiles
+                bvx = 3.0 * (dx / d)
+                bvy = 3.0 * (dy / d)
+                self.projectiles.append({'x': self.x, 'y': self.y, 'z': self.z + 20, 'vx': bvx, 'vy': bvy, 'life': 400})
             for b in self.projectiles:
                 b['x'] += b['vx']; b['y'] += b['vy']
                 b['life'] -= 1
-            self.projectiles = [b for b in self.projectiles if b['life']>0]
+            self.projectiles = [b for b in self.projectiles if b['life'] > 0]
+
     def draw(self):
+        # Scale model about its center for pulsing visuals
+        glPushMatrix()
+        glTranslatef(self.x, self.y, self.z)
+        glScalef(self._pulse_scale, self._pulse_scale, self._pulse_scale)
+        glTranslatef(-self.x, -self.y, -self.z)
         super().draw()
+        glPopMatrix()
+
         if self.is_boss:
             # draw projectiles as small spheres
             glColor3f(1, 1, 0)
