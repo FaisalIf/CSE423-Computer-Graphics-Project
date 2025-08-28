@@ -48,7 +48,12 @@ COLORS = {
     'white': (1.0, 1.0, 1.0),
     'black': (0.0, 0.0, 0.0),
     'yellow': (1.0, 1.0, 0.0),
-    'magenta': (1.0, 0.0, 1.0)
+    'magenta': (1.0, 0.0, 1.0),
+    # New colors for the player
+    'light_brown': (0.87, 0.72, 0.53),
+    'orange': (1.0, 0.55, 0.0),
+    'light_blue': (0.52, 0.74, 0.88),
+    'grey': (0.6, 0.6, 0.6)
 }
 
 def get_color(name):
@@ -185,19 +190,33 @@ class Box(Shape3D):
         glPopMatrix()
 
 class Cylinder(Shape3D):
-    # tiny height cylinders used as portal rings / bullets etc.
-    def __init__(self, color, x, y, z, rx, ry, rz, radius=10, height=2):
+    # Cylinder with configurable pivot anchor: 'center', 'base', or 'top'
+    # Drawn as a GLU cylinder extruded along +Z from its local origin.
+    def __init__(self, color, x, y, z, rx, ry, rz, radius=10, height=20, top_radius=None, anchor='center'):
         super().__init__(color, x, y, z, rx, ry, rz, radius*2, radius*2, height)
         self.radius = radius
+        self.top_radius = radius if top_radius is None else top_radius
         self.height = height
+        self.anchor = anchor  # 'center'|'base'|'top'
     def draw(self):
         glColor3f(*self.color)
         glPushMatrix()
-        glTranslatef(self.x, self.y, self.z)
+        # Position according to anchor so rotations pivot correctly
+        if self.anchor == 'base':
+            glTranslatef(self.x, self.y, self.z)
+        elif self.anchor == 'top':
+            glTranslatef(self.x, self.y, self.z)
+        else:  # center
+            glTranslatef(self.x, self.y, self.z - self.height/2)
+        # Apply rotation at pivot
         glRotatef(self.rx, 1, 0, 0)
         glRotatef(self.ry, 0, 1, 0)
         glRotatef(self.rz, 0, 0, 1)
-        gluCylinder(self.quadric, self.radius, self.radius, self.height, 16, 1)
+        # For 'top' anchor, draw downwards by translating -height then extruding +Z
+        if self.anchor == 'top':
+            glTranslatef(0, 0, -self.height)
+        # For 'base', start at base; for 'center', already moved to base-like start
+        gluCylinder(self.quadric, self.radius, self.top_radius, self.height, 16, 1)
         glPopMatrix()
 
 class CompoundEntity(Entity):
@@ -271,37 +290,46 @@ class Chest(CompoundEntity):
 
 class StickPlayer(CompoundEntity):
     def __init__(self, x, y, ground_z, rz):
-        w, h = 40, 80
-        leg_h = 0.4 * h
-        leg_w = 0.1 * w
-        leg_z = ground_z + leg_h/2
-        leg_off = w/4 - leg_w/2
-        hip_z = ground_z + leg_h
-        hip_w = w/2
-        hip_h = leg_w
-        body_h = leg_h
-        body_w = leg_w
-        body_z = ground_z + leg_h + body_h/2
-        sho_z = hip_z + body_h
-        sho_w = hip_w
-        arm_h = 0.7 * leg_h
-        arm_z = sho_z - arm_h/2
-        head_h = 0.1 * h
-        head_z = ground_z + h - head_h/2
-        leg1 = Box('dark_blue', x-leg_off, y, leg_z, 0, 0, 0, leg_w, leg_h)
-        leg2 = Box('dark_blue', x+leg_off, y, leg_z, 0, 0, 0, leg_w, leg_h)
-        hip  = Box('dark_blue', x, y, hip_z, 0, 0, 0, hip_w, hip_h, hip_h)
-        body = Box('dark_blue', x, y, body_z, 0, 0, 0, body_w, body_h)
-        sho  = Box('dark_blue', x, y, sho_z, 0, 0, 0, sho_w, hip_h, hip_h)
-        arm1 = Box('dark_blue', x-leg_off, y, arm_z, 0, 0, 0, leg_w, arm_h)
-        arm2 = Box('dark_blue', x+leg_off, y, arm_z, 0, 0, 0, leg_w, arm_h)
-        head = Sphere('dark_blue', x, y, head_z, 0, 0, 0, head_h)
-        super().__init__(leg1, leg2, hip, body, sho, arm1, arm2, head)
-        self.anim = 0
-        self.anim_dir = 0.0015
+        # Overall proportions
+        total_h = 120.0
+        leg_h = 45.0
+        body_h = 48.0
+        head_r = 14.0
+        arm_h = 35.0
+        limb_r = 5.0
+        shoulder_span = 32.0
+
+        # Z anchors and stacking
+        hip_z = ground_z + leg_h                 # top of legs
+        body_center_z = hip_z + body_h/2         # body center
+        shoulder_z = hip_z + body_h              # top of body
+        head_center_z = shoulder_z + head_r + 4.0
+
+        # Legs: pivot at hip (top anchor), extend downward
+        leg_left = Cylinder('grey', x - 10, y, hip_z, 0, 0, 0, radius=limb_r, height=leg_h, anchor='top')
+        leg_right = Cylinder('grey', x + 10, y, hip_z, 0, 0, 0, radius=limb_r, height=leg_h, anchor='top')
+
+        # Body: centered cylinder with bigger radius
+        body = Cylinder('orange', x, y, body_center_z, 0, 0, 0, radius=10.0, height=body_h, anchor='center')
+
+        # Arms: pivot at shoulders (top anchor), extend downward; hand color slightly deeper (light_blue adjusted above)
+        arm_left = Cylinder('light_blue', x - shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=limb_r, height=arm_h, anchor='top')
+        arm_right = Cylinder('light_blue', x + shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=limb_r, height=arm_h, anchor='top')
+
+        # Head (sphere, light brown)
+        head = Sphere('light_brown', x, y, head_center_z, 0, 0, 0, head_r)
+
+        super().__init__(leg_left, leg_right, body, arm_left, arm_right, head)
+
+        # Save parameters for later use
+        self.leg_h = leg_h
+        self.on_ground_z = ground_z
+
+        # Gameplay and animation properties
+        self.anim = 0.0
+        self.anim_dir = 0.015
         self.speed = 3.0
         self.jump_v = 0.0
-        self.on_ground_z = ground_z
         self.health = 100
         self.damage = 10
         self.inventory = {
@@ -315,28 +343,40 @@ class StickPlayer(CompoundEntity):
         self.active_slot = 1  # 1..9
         self.head_visible = True
         self.yaw = 0  # facing (deg)
+
     def head_entity(self):
         return self.entities[-1]
+
     def ensure_head_visibility(self, show):
         self.head_visible = show
-        self.head_entity().color = get_color('dark_blue') if show else get_color('black')
+        self.head_entity().color = get_color('light_brown') if show else get_color('black')
+
     def walk_anim_tick(self):
-        leg1 = self.entities[0]; leg2 = self.entities[1]
+        # Deterministic swing without cumulative transforms: set rx directly
+        leg_left = self.entities[0]
+        leg_right = self.entities[1]
         if self.anim > 1 or self.anim < -1:
             self.anim_dir *= -1
         self.anim += self.anim_dir
-        ay1 = (leg1.y_max + leg1.y_min)/2
-        ay2 = (leg2.y_max + leg2.y_min)/2
-        leg1.rotate_x(7*self.anim, ay1, leg1.z_max)
-        leg2.rotate_x(-7*self.anim, ay2, leg2.z_max)
+        swing = 12.0 * math.sin(self.anim * math.pi)
+        # Set local rotation angles only (draw uses anchor pivot), avoids drift
+        leg_left.rx = swing
+        leg_right.rx = -swing
+
     def move(self, dx, dy):
         self.x += dx; self.y += dy
         for e in self.entities:
             e.x += dx; e.y += dy; e.bbox_sync()
         self.bbox_sync()
+
+    def stand_center_z(self):
+        # grounded center at half leg height
+        return self.on_ground_z + 0.5*self.leg_h
+
     def jump(self):
-        if abs(self.z - (self.on_ground_z+40)) < 0.1:  # simple grounded check
+        if abs(self.z - self.stand_center_z()) < 0.2:  # simple grounded check
             self.jump_v = 6.5
+
     def physics(self):
         if self.jump_v != 0:
             # update vertical (apply gravity)
@@ -344,13 +384,21 @@ class StickPlayer(CompoundEntity):
             for e in self.entities:
                 e.z += self.jump_v; e.bbox_sync()
             self.jump_v -= 0.35
-            if self.z <= self.on_ground_z+40:
-                dz = (self.on_ground_z+40) - self.z
+            if self.z <= self.stand_center_z():
+                dz = self.stand_center_z() - self.z
                 self.z += dz
                 for e in self.entities:
                     e.z += dz; e.bbox_sync()
                 self.jump_v = 0.0
         self.bbox_sync()
+
+    def draw(self):
+        if self.head_visible:
+            super().draw()
+        else:
+            # draw all but the last entity (head)
+            for e in self.entities[:-1]:
+                e.draw()
 
 class Enemy(CompoundEntity):
     def __init__(self, x, y, ground_z, is_boss=False):
@@ -1039,7 +1087,7 @@ def update_movement():
     dx=0; dy=0
     sp = player.speed
     # yaw update from A/D keys (rotate while held)
-    yaw_step = 2.2  # degrees per tick while held
+    yaw_step = 1.4  # degrees per tick while held (slower)
     if moving['a']:
         player.yaw = (player.yaw - yaw_step) % 360
     if moving['d']:
