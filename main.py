@@ -377,7 +377,7 @@ class Enemy(CompoundEntity):
         self.is_boss = is_boss
         self.base_color = body.color
         self.pulse = 0.0
-        self.speed = 1.2 if not is_boss else 1.9
+        self.speed = 0 if not is_boss else 0
         self.hp = 20 if not is_boss else 120
         self.projectiles = []  # boss only
         self.shoot_cool = 0
@@ -520,6 +520,9 @@ load_uses_left = 3
 
 # level
 current_level = 1
+boss_spawned = False
+boss_seen_alive = False
+win_check_cooldown = 0
 
 # --------------------------- Utilities ------------------------
 
@@ -573,9 +576,12 @@ def clear_level():
     checkpoints.clear()
 
 def setup_level(level):
-    global current_level, last_checkpoint, start_time
+    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown
     current_level = level
     clear_level()
+    boss_spawned = False
+    boss_seen_alive = False
+    win_check_cooldown = 120  # frames to wait before evaluating win
     # place player at origin
     place_player(0,0)
     player.inventory['portalgun'] = 1 if level>=1 else 0  # L1 finds it in a chest
@@ -601,6 +607,10 @@ def setup_level(level):
     else:
         for i in range(10): enemies.append(Enemy(random.randint(-400,400), random.randint(-400,400), GRID_Z, False))
         enemies.append(Enemy(350,350, GRID_Z, True))
+        # Fallback: ensure there's at least one boss; if not, spawn one near origin
+        if not any(e.is_boss for e in enemies):
+            enemies.append(Enemy(180,0, GRID_Z, True))
+        boss_spawned = any(e.is_boss for e in enemies)
     # timer/score
     start_time = time.time()
 
@@ -779,7 +789,7 @@ def draw_menu():
 # --------------------------- Update ---------------------------
 
 def animate():
-    global score, best_score, paused
+    global score, best_score, paused, win_check_cooldown
     if not paused:
         # movement animation and physics
         player.walk_anim_tick()
@@ -850,10 +860,15 @@ def animate():
         # health check / win conditions
         if player.health<=0:
             pause_game('paused')
-        if current_level==3 and all(not e.is_boss for e in enemies):
-            # boss dead => win
-            pause_game('paused')
-            score_add(500)
+        # Only end L3 after cooldown and a boss was seen alive and now none remain
+        if current_level==3 and win_check_cooldown==0:
+            if any(e.is_boss for e in enemies):
+                globals()['boss_seen_alive'] = True
+            if boss_spawned and boss_seen_alive and not any(e.is_boss for e in enemies):
+                pause_game('paused')
+                score_add(500)
+        if win_check_cooldown>0:
+            win_check_cooldown -= 1
         # score as time-based (speedrun style)
         if start_time:
             elapsed = time.time()-start_time
@@ -1071,10 +1086,11 @@ def update_movement():
     sp = player.speed
     # yaw update from A/D keys (rotate while held)
     yaw_step = 0.8  # degrees per tick while held (even slower)
+    # Swap A/D rotation directions
     if moving['a']:
-        player.yaw = (player.yaw - yaw_step) % 360
-    if moving['d']:
         player.yaw = (player.yaw + yaw_step) % 360
+    if moving['d']:
+        player.yaw = (player.yaw - yaw_step) % 360
     # convert WASD relative to yaw
     dir_forward = math.radians(player.yaw)
     fx, fy = math.cos(dir_forward), math.sin(dir_forward)
@@ -1097,7 +1113,7 @@ def pause_game(mode='paused'):
     paused=True; menu_mode=mode
 
 
-def main():
+def main(level=None):
     global ASPECT
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)  # NO DEPTH
@@ -1121,8 +1137,15 @@ def main():
     bg = get_color('dark_grey')
     glClearColor(bg[0], bg[1], bg[2], 1)
 
-    # start at title menu
-    pause_game('title')
+    # start at title menu or jump straight into a requested level
+    if level is not None:
+        setup_level(level)
+        # enter gameplay directly
+        global paused, menu_mode
+        paused = False
+        menu_mode = None
+    else:
+        pause_game('title')
 
     glutMainLoop()
 

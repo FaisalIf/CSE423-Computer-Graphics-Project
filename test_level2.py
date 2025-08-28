@@ -6,6 +6,5 @@ import main as game
 
 
 if __name__ == "__main__":
-    setattr(game, "CURRENT_LEVEL", 2)
     game.rand_var = 222
-    game.main()
+    game.main(2)
