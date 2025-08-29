@@ -1,32 +1,27 @@
+#Necessary imports for the game to run
+
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
 from OpenGL import GLUT as GLUTmod
-
-# =============================================================
-# Demons & Portals — Minimal 3D FPS-Puzzle (single-file, KISS)
-# Only uses: GL / GLUT / GLU from PyOpenGL as allowed.
-# No depth buffer. No extra OpenGL/GLUT functions beyond these.
-# =============================================================
-
 import math, random, time
 
-# ------------------- Window / Camera Globals -------------------
+#Variables for window and camera
 WIN_W, WIN_H = 1000, 800
 ASPECT = WIN_W/ WIN_H
 fovY_default = 77.3
 fovY_scoped  = 40.0
 
-# camera modes
+#Camera modes
 CAM_FIRST  = 0
 CAM_THIRD  = 1
 CAM_TOPDOWN = 2 
 camera_mode = CAM_THIRD
 
-# current FOV; updated when scoping
+#Current FOV; updated when scoping
 fovY = fovY_default
 
-# third-person camera parameters
+#Third-person camera parameters
 third_cam_back = 120.0
 third_cam_side = 30.0
 third_cam_height = 120.0
@@ -34,8 +29,25 @@ camera_smooth = 0.15
 cam_eye = None
 cam_cen = None
 
+#Variables for the checkpoint tile functionality
 checkpoint_tiles = []
 GRID_Z = 10
+
+#Variables for the exit tile functionality
+exit_tiles = []
+
+#Messages for level 1 tutorials
+level1_start_msg = ""
+level1_msg_active = False
+
+level1_checkpoint_msg = ""
+level1_checkpoint_msg_active = False
+
+level1_enemy_stat = 0
+
+level1_all_enemies_msg = ""
+level1_all_enemies_msg_active = False
+level1_enemies_spawned = False  # Track if the 5 enemies have been spawned
 
 # --------------------------- Utils / Low-level ----------------
 
@@ -63,7 +75,6 @@ _COLORS = {
     'black': (0.0, 0.0, 0.0),
     'grass_green': (0.2, 0.8, 0.2),
     'white': (1.0, 1.0, 1.0),
-    # custom chest colors (from hex 0F0E0E and 541212)
     'chest_dark': (0.0588, 0.0549, 0.0549),
     'chest_maroon': (0.3294, 0.0706, 0.0706),
 }
@@ -146,9 +157,26 @@ class CheckpointTile(Entity):
         glScalef(self.width, self.depth, self.height)
         glutSolidCube(1)
         glPopMatrix()
+        
+class LevelExitTile(Entity):
+    def __init__(self, x, y, z=GRID_Z):
+        super().__init__(x, y, z, width=100, depth=100, height=8)
+        self.active = True
+
+    def draw(self):
+        glColor3f(*get_color('black'))
+        glPushMatrix()
+        glTranslatef(self.x, self.y, self.z)
+        glScalef(self.width, self.depth, self.height)
+        glutSolidCube(1)
+        glPopMatrix()
 
 def place_checkpoint_tile(x, y):
     checkpoint_tiles.append(CheckpointTile(x, y))
+    
+def place_exit_tile(x, y):
+    global exit_tiles
+    exit_tiles.append(LevelExitTile(x, y))
 
 class Shape3D(Entity):
     quadric = gluNewQuadric()
@@ -716,7 +744,7 @@ def clear_level():
     globals()['world_bounds'] = None
 
 def setup_level(level):
-    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown
+    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active
     current_level = level
     clear_level()
     boss_spawned = False
@@ -748,6 +776,9 @@ def setup_level(level):
         build_level3_bounds(field_size, 2000)
         place_player(-field_size + 120, 0)
         place_checkpoint_tile(-1500, -100)
+        level1_start_msg = "Walk over the green tile to set your checkpoint"
+        level1_msg_active = True
+        place_exit_tile(-1200, 0)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -912,7 +943,7 @@ def draw_hud_stats():
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     glColor3f(1,1,1)
     x, y = 10, WIN_H - 24
-    text = f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}  Best: {int(best_score)}  Loads:{load_uses_left}"
+    text = f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Rifle Ammo: {player.inventory['rifle_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}  Best: {int(best_score)}  Loads:{load_uses_left}"
     glRasterPos2f(x, y)
     font = globals().get('GLUT_BITMAP_HELVETICA_18', None)
     if font is not None:
@@ -1003,12 +1034,54 @@ def display():
         draw_crosshair(True)
     else:
         draw_crosshair(False)
+    
+    if level1_msg_active and level1_start_msg:
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+        glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+        glColor3f(0,0,0)
+        glBegin(GL_QUADS)
+        glVertex2f(WIN_W//2-240, WIN_H//2+60)
+        glVertex2f(WIN_W//2+240, WIN_H//2+60)
+        glVertex2f(WIN_W//2+240, WIN_H//2+120)
+        glVertex2f(WIN_W//2-240, WIN_H//2+120)
+        glEnd()
+        draw_text(WIN_W//2-200, WIN_H//2+80, level1_start_msg, (1,1,1))
+        glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
+        
+    
+    if level1_checkpoint_msg_active and level1_checkpoint_msg:
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+        glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+        glColor3f(0,0,0)
+        glBegin(GL_QUADS)
+        glVertex2f(WIN_W//2-240, WIN_H//2+10)
+        glVertex2f(WIN_W//2+240, WIN_H//2+10)
+        glVertex2f(WIN_W//2+240, WIN_H//2+70)
+        glVertex2f(WIN_W//2-240, WIN_H//2+70)
+        glEnd()
+        draw_text(WIN_W//2-200, WIN_H//2+30, level1_checkpoint_msg, (1,1,1))
+        glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
+        
+    if level1_all_enemies_msg_active and level1_all_enemies_msg:
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+        glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+        glColor3f(0,0,0)
+        glBegin(GL_QUADS)
+        glVertex2f(WIN_W//2-240, WIN_H//2-60)
+        glVertex2f(WIN_W//2+240, WIN_H//2-60)
+        glVertex2f(WIN_W//2+240, WIN_H//2)
+        glVertex2f(WIN_W//2-240, WIN_H//2)
+        glEnd()
+        draw_text(WIN_W//2-200, WIN_H//2-40, level1_all_enemies_msg, (1,1,1))
+        glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
     # Menus
     if paused:
         draw_menu()
     for ct in checkpoint_tiles:
         ct.draw()
+    for et in exit_tiles:
+        et.draw()
     
     glutSwapBuffers()
 
@@ -1043,7 +1116,7 @@ def draw_menu():
 # --------------------------- Update ---------------------------
 
 def animate():
-    global score, best_score, paused, win_check_cooldown
+    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active
     if not paused:
         # movement animation and physics
         player.walk_anim_tick()
@@ -1108,6 +1181,26 @@ def animate():
                 # Show message (simple: set a global for a few frames)
                 globals()['checkpoint_msg'] = 60  # show for 60 frames
                 
+                if current_level == 1:
+                    level1_checkpoint_msg = "Excellent!!! Now kill the enemies!!!"
+                    level1_checkpoint_msg_active = True
+                    
+                    if level1_enemy_stat == 0:
+                        for i in range(5):
+                                angle = i * (2 * math.pi / 5)
+                                ex = player.x + math.cos(angle) * 300
+                                ey = player.y + math.sin(angle) * 300
+                                enemies.append(Enemy(ex, ey, GRID_Z, False))
+                        level1_enemy_stat = 1
+                        level1_enemies_spawned = True
+        
+        for et in exit_tiles:
+            if et.active and math.hypot(player.x - et.x, player.y - et.y) < 60:
+                # Advance to next level
+                setup_level(current_level + 1)
+                exit_tiles.clear()  # Remove exit tiles for next level
+                break
+                
         # pickups physics
         for p in pickups:
             p['vz'] -= 0.3
@@ -1151,6 +1244,11 @@ def animate():
             elapsed = time.time()-start_time
             # higher score for faster clear -> we subtract elapsed each tick
             pass
+        if current_level == 1 and level1_enemies_spawned:
+            # Only show message if all spawned enemies are dead and message not yet shown
+            if level1_all_enemies_msg_active is False and level1_enemies_spawned and all(not e.is_boss for e in enemies) and len(enemies) == 0:
+                level1_all_enemies_msg = "Great job! All enemies defeated. Explore further or find the exit."
+                level1_all_enemies_msg_active = True
     glutPostRedisplay()
 
 # --------------------------- Score ----------------------------
@@ -1380,6 +1478,9 @@ def open_chest(c:Chest):
 # --------------------------- Movement Tick --------------------
 
 def update_movement():
+    global level1_msg_active, level1_checkpoint_msg_active, level1_all_enemies_msg_active
+    
+    
     # WASD planar move
     dx=0; dy=0
     sp = player.speed
@@ -1396,6 +1497,14 @@ def update_movement():
     if moving['w']: dx += fx*sp; dy += fy*sp
     if moving['s']: dx -= fx*sp; dy -= fy*sp
     if dx or dy:
+        if current_level == 1 and level1_msg_active:
+            level1_msg_active = False
+            
+        if current_level == 1 and level1_checkpoint_msg_active:
+            level1_checkpoint_msg_active = False
+            
+        if current_level == 1 and level1_all_enemies_msg_active:
+            level1_all_enemies_msg_active = False
         # apply movement, but clamp within world bounds if defined
         new_x = player.x + dx
         new_y = player.y + dy
