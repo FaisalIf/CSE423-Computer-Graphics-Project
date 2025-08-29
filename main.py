@@ -305,7 +305,7 @@ class StickPlayer(CompoundEntity):
         self.jump_v = 0.0
         self.health = 100
         self.damage = 10
-        self.inventory = {'handgun_ammo':24,'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
+        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
         self.active_slot = 1
         self.head_visible = True
         self.yaw = 0
@@ -375,7 +375,20 @@ class StickPlayer(CompoundEntity):
         glPushMatrix(); glTranslatef(-self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1); glPopMatrix()
         glPushMatrix(); glTranslatef( self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
         # weapon
-        glPushMatrix(); glTranslatef(0, 0, self.arm_h - 2); glRotatef(90, 0, 1, 0); glColor3f(0.3,0.3,0.3); gluCylinder(Sphere.quadric, 3, 3, 30, 12, 1); glPopMatrix()
+        if selected_slot == 2:  # Rifle slot
+            glPushMatrix()
+            glTranslatef(0, 0, self.arm_h - 2)
+            glRotatef(90, 0, 1, 0)
+            glColor3f(0.05, 0.05, 0.05)  # Dark black
+            gluCylinder(Sphere.quadric, 4, 4, 60, 16, 1)  # Longer cylinder
+            glPopMatrix()
+        else:
+            glPushMatrix()
+            glTranslatef(0, 0, self.arm_h - 2)
+            glRotatef(90, 0, 1, 0)
+            glColor3f(0.3, 0.3, 0.3)  # Default stick color
+            gluCylinder(Sphere.quadric, 3, 3, 30, 12, 1)
+            glPopMatrix()
         glPopMatrix()
 
         # Head
@@ -598,10 +611,11 @@ best_score = 0
 # 1: handgun, 2: portalgun, 3.. consumables
 inventory_slots = {
     1: 'handgun',
-    2: 'portalgun',
-    3: 'Nourishment',
-    4: 'Aegis',
-    5: 'Shard'
+    2: 'rifle',
+    3: 'portalgun', 
+    4: 'Nourishment',
+    5: 'Aegis',
+    6: 'Shard'
 }
 
 selected_slot = 1
@@ -707,7 +721,7 @@ def setup_level(level):
         for i in range(2 if level==1 else 3):
             cx = random.randint(-250,250); cy = random.randint(-250,250)
             c = Chest(cx, cy, GRID_Z)
-            c.contains = random.choice(['ammo','Nourishment','Aegis','Shard','portalgun'])
+            c.contains = random.choice(['ammo', 'rifle_ammo', 'Nourishment','Aegis','Shard','portalgun'])
             chests.append(c)
     # enemies
     if level==1:
@@ -767,6 +781,8 @@ def place_player(x,y):
 def apply_pickup(name):
     if name=='ammo':
         player.inventory['handgun_ammo'] += 12
+    elif name == 'rifle_ammo':
+        player.inventory['rifle_ammo'] += 6 
     elif name=='Nourishment':
         player.health = clamp(player.health+25, 0, 100)
     elif name=='Aegis':
@@ -1164,7 +1180,11 @@ def keys(key, x, y):
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
     if k in (b't', b'T'):
-        set_camera_mode(CAM_TOPDOWN)
+        if camera_mode != CAM_TOPDOWN:
+            pre_topdown_camera_mode = camera_mode
+            set_camera_mode(CAM_TOPDOWN)
+        else:
+            set_camera_mode(pre_topdown_camera_mode)
 
 
 def key_up(key, x, y):
@@ -1211,9 +1231,9 @@ def clicks(button, state, x, y):
             set_fov(False)
     # wheel
     if button == 3:  # wheel up
-        change_slot(1)
-    if button == 4:  # wheel down
         change_slot(-1)
+    if button == 4:  # wheel down
+        change_slot(1)
 
 # --------------------------- Actions --------------------------
 
@@ -1251,6 +1271,8 @@ def do_primary_action():
     item = inventory_slots.get(selected_slot, '')
     if item=='handgun':
         shoot_handgun()
+    elif item=='rifle':
+        shoot_rifle()
     elif item=='portalgun' and player.inventory['portalgun']:
         place_portal()
     elif item=='Nourishment' and player.inventory['Nourishment']>0:
@@ -1272,6 +1294,18 @@ def shoot_handgun():
     vy = math.sin(ang)*16
     dmg = player.damage
     bullets.append(Bullet((head.x + math.cos(ang) * 55), (head.y + math.sin(ang) * 55), head.z - 15, vx, vy, dmg))
+
+def shoot_rifle():
+    if player.inventory['rifle_ammo'] <= 0:
+        return
+    player.inventory['rifle_ammo'] -= 1
+    head = player.head_entity()
+    ang = math.radians(player.yaw)
+    vx = math.cos(ang) * 28  # Faster bullet
+    vy = math.sin(ang) * 28
+    dmg = player.damage + 15  # More damage than handgun
+    max_dist = 1600
+    bullets.append(Bullet(head.x + math.cos(ang) * 55, head.y + math.sin(ang) * 55, head.z - 15, vx, vy, dmg, max_dist))
 
 portal_toggle = True  # alternate blue/red
 
