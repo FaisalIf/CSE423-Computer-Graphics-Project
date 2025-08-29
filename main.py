@@ -706,6 +706,7 @@ def setup_level(level):
     if level==1:
         field_size = 1600
         build_level3_bounds(field_size, 2000)
+        place_player(-field_size + 120, 0)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
