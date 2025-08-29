@@ -1136,7 +1136,7 @@ moving = {'w':False,'a':False,'s':False,'d':False}
 
 
 def keys(key, x, y):
-    global paused, menu_mode, camera_mode, scoped, fovY, selected_slot
+    global paused, menu_mode, camera_mode, scoped, fovY, selected_slot, pre_topdown_camera_mode
     k = key
     if k==b'\x1b':  # ESC
         if paused:
