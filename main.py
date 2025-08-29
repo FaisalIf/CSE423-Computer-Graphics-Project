@@ -827,11 +827,11 @@ def draw_inventory_bar():
         glBegin(GL_QUADS)
         glVertex2f(x,y); glVertex2f(x+slot_w,y); glVertex2f(x+slot_w,y+slot_h); glVertex2f(x,y+slot_h)
         glEnd()
-        draw_text(x+6, y+slot_h-18, str(i), (0, 0, 0)
+        draw_text(x+6, y+slot_h-18, str(i), (0, 0, 0))
         # item label
         name = inventory_slots.get(i,'')
         if name:
-            draw_text(x+20, y+20, name[:6], (0, 0, 0)
+            draw_text(x+20, y+20, name[:6], (0, 0, 0))
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 def draw_crosshair(scoped_mode):
