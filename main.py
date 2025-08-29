@@ -386,9 +386,10 @@ class Enemy(CompoundEntity):
         # Boss gets a scarier, bigger model with grey head and black body
         if is_boss:
             body_col, head_col = 'black', 'grey'
-            body_h = 80.0
-            body_r = 40.0
-            head_r = 40.0
+            # slightly bigger boss
+            body_h = 100.0
+            body_r = 48.0
+            head_r = 48.0
             # Scarier: add spikes (vertical cylinders) around head
             spike_r = 2.5
             spike_h = 30.0
@@ -405,9 +406,10 @@ class Enemy(CompoundEntity):
             palette = ['red', 'orange', 'light_blue', 'cyan', 'yellow']
             body_col = random.choice(palette)
             head_col = random.choice([c for c in palette if c != body_col])
-            body_h = 40.0
-            body_r = 20.0
-            head_r = 20.0
+            # slightly bigger normal enemy
+            body_h = 50.0
+            body_r = 24.0
+            head_r = 24.0
             spike_entities = []
 
         # Core parts
@@ -437,6 +439,33 @@ class Enemy(CompoundEntity):
         # give the boss an initial cooldown so it doesn't start firing instantly
         self.shoot_cool = 220 if is_boss else 0
         self._pulse_scale = 1.0
+        # hit radius for bullet collision (horizontal plane)
+        self.hit_radius = max(body_r, head_r) * 1.2
+        # Boss lives represented by grey spikes around the head
+        if is_boss:
+            self.spikes = list(spike_entities)
+        else:
+            self.spikes = []
+
+    def hit_by_bullet(self, dmg):
+        """Apply bullet impact. Returns 'hit' or 'defeated' when enemy is done.
+           For boss, remove one spike per hit; defeat when all spikes gone.
+        """
+        if self.is_boss:
+            if self.spikes:
+                # remove one life spike and from render list
+                spike = self.spikes.pop()
+                try:
+                    self.entities.remove(spike)
+                except ValueError:
+                    pass
+                return 'defeated' if len(self.spikes) == 0 else 'hit'
+            # fallback to HP if no spikes present
+            self.hp -= dmg
+            return 'defeated' if self.hp <= 0 else 'hit'
+        else:
+            self.hp -= dmg
+            return 'defeated' if self.hp <= 0 else 'hit'
 
     def update(self, target):
         # Very slow pulse
@@ -911,7 +940,15 @@ def display():
 # --------------------------- Menus ----------------------------
 
 def draw_menu():
-    title = 'Demons & Portals' if menu_mode=='title' else 'Paused'
+    # menu_mode: 'title', 'paused', 'win', 'lose'
+    if menu_mode == 'win':
+        title = 'You Win'
+    elif menu_mode == 'lose':
+        title = 'You Lost'
+    elif menu_mode == 'paused':
+        title = 'Paused'
+    else:
+        title = 'Demons & Portals'
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     # dark overlay
@@ -922,8 +959,10 @@ def draw_menu():
     draw_text(WIN_W/2-120, WIN_H-120, title)
     if menu_mode=='title':
         draw_text(WIN_W/2-200, WIN_H-170, 'Press N for New Game | F1/F2/F3 for Level Tests')
-    else:
+    elif menu_mode=='paused':
         draw_text(WIN_W/2-250, WIN_H-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
+    elif menu_mode in ('win','lose'):
+        draw_text(WIN_W/2-140, WIN_H-170, f'Total Score: {int(score)}')
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 # --------------------------- Update ---------------------------
@@ -934,7 +973,7 @@ def animate():
         # movement animation and physics
         player.walk_anim_tick()
         player.physics()
-        # bullets
+    # bullets
         alive = []
         for b in bullets:
             if b.update(): alive.append(b)
@@ -960,17 +999,33 @@ def animate():
                     if math.hypot(pb['x']-player.x, pb['y']-player.y) < 20:
                         player.health -= 10
                         e.projectiles.remove(pb)
-        # bullet hit enemies
+        # bullet hit enemies (improved collision + boss lives logic)
         for b in list(bullets):
             for e in list(enemies):
-                if abs(b.x - e.x) < 20 and abs(b.y - e.y) < 20:
-                    e.hp -= b.dmg
-                    if e.hp <= 0:
-                        enemies.remove(e)
-                        score_add(20 if not e.is_boss else 200)
-                    try: bullets.remove(b)
-                    except: pass
-                    break
+                dx = b.x - e.x; dy = b.y - e.y
+                hit_r = getattr(e, 'hit_radius', 20)
+                if math.hypot(dx, dy) < hit_r:
+                    if hasattr(e, 'hit_by_bullet'):
+                        outcome = e.hit_by_bullet(b.dmg)
+                        if outcome == 'defeated':
+                            enemies.remove(e)
+                            if e.is_boss:
+                                score_add(500)
+                                pause_game('win')
+                            else:
+                                score_add(20)
+                        # remove bullet on any hit
+                        try: bullets.remove(b)
+                        except: pass
+                        break
+                    else:
+                        e.hp -= b.dmg
+                        if e.hp <= 0:
+                            enemies.remove(e)
+                            score_add(20 if not e.is_boss else 200)
+                        try: bullets.remove(b)
+                        except: pass
+                        break
         # pickups physics
         for p in pickups:
             p['vz'] -= 0.3
@@ -999,13 +1054,13 @@ def animate():
                 set_checkpoint((cx,cy))
         # health check / win conditions
         if player.health<=0:
-            pause_game('paused')
-        # Only end L3 after cooldown and a boss was seen alive and now none remain
+            pause_game('lose')
+        # Secondary win guard: if no bosses remain and we had one, declare win
         if current_level==3 and win_check_cooldown==0:
             if any(e.is_boss for e in enemies):
                 globals()['boss_seen_alive'] = True
             if boss_spawned and boss_seen_alive and not any(e.is_boss for e in enemies):
-                pause_game('paused')
+                pause_game('win')
                 score_add(500)
         if win_check_cooldown>0:
             win_check_cooldown -= 1
