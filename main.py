@@ -73,8 +73,8 @@ def get_color(name):
     return _COLORS.get(name, (1.0, 1.0, 1.0))
 
 
-def draw_text(x, y, text):
-    glColor3f(1, 1, 1)
+def draw_text(x, y, text, color = (1, 1, 1)):
+    glColor3f(*color)
     glRasterPos2f(x, y)
     for ch in str(text):
         glutBitmapCharacter(GLUTmod.GLUT_BITMAP_9_BY_15, ord(ch))
@@ -816,7 +816,7 @@ def apply_pickup(name):
 def draw_inventory_bar():
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
-    slot_w = 70; slot_h = 50; x0 = 20; y0 = 20
+    slot_w = 85; slot_h = 50; x0 = 20; y0 = 20
     for i in range(1,10):
         x = x0 + (i-1)*(slot_w+6)
         y = y0
@@ -827,11 +827,11 @@ def draw_inventory_bar():
         glBegin(GL_QUADS)
         glVertex2f(x,y); glVertex2f(x+slot_w,y); glVertex2f(x+slot_w,y+slot_h); glVertex2f(x,y+slot_h)
         glEnd()
-        draw_text(x+6, y+slot_h-18, str(i))
+        draw_text(x+6, y+slot_h-18, str(i), (0, 0, 0)
         # item label
         name = inventory_slots.get(i,'')
         if name:
-            draw_text(x+20, y+20, name[:6])
+            draw_text(x+20, y+20, name[:6], (0, 0, 0)
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 def draw_crosshair(scoped_mode):
