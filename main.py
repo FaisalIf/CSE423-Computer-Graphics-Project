@@ -20,6 +20,7 @@ fovY_scoped  = 40.0
 # camera modes
 CAM_FIRST  = 0
 CAM_THIRD  = 1
+CAM_TOPDOWN = 2 
 camera_mode = CAM_THIRD
 
 # current FOV; updated when scoping
@@ -659,7 +660,7 @@ def camera():
         cam_cen[1] += (des_cen[1]-cam_cen[1])*(camera_smooth*1.2)
         cam_cen[2] += (des_cen[2]-cam_cen[2])*(camera_smooth*1.2)
         gluLookAt(cam_eye[0],cam_eye[1],cam_eye[2], cam_cen[0],cam_cen[1],cam_cen[2], 0,0,1)
-    else:
+    elif camera_mode == CAM_FIRST:
         # first person from head (no smoothing for responsiveness)
         head = player.head_entity()
         ex,ey,ez = head.x, head.y, head.z
@@ -667,6 +668,8 @@ def camera():
         dy = math.sin(math.radians(player.yaw))
         cam_eye = None; cam_cen = None  # reset smoothing when switching back later
         gluLookAt(ex,ey,ez, ex+dx*50, ey+dy*50, ez, 0,0,1)
+    elif camera_mode == CAM_TOPDOWN:
+        gluLookAt(0, 0, 2500, 0, 0, 0, 1, 0, 0)
 
 # --------------------------- Level Setup ----------------------
 
@@ -1143,6 +1146,8 @@ def keys(key, x, y):
     # inventory hotkeys 1..9
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
+    if k in (b't', b'T'):
+        set_camera_mode(CAM_TOPDOWN)
 
 
 def key_up(key, x, y):
