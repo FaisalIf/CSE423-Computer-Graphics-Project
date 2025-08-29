@@ -302,7 +302,7 @@ class StickPlayer(CompoundEntity):
         self.jump_v = 0.0
         self.health = 100
         self.damage = 10
-        self.inventory = {'handgun_ammo':24,'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
+        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
         self.active_slot = 1
         self.head_visible = True
         self.yaw = 0
