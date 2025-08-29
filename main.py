@@ -135,7 +135,7 @@ class Entity:
 
 class CheckpointTile(Entity):
     def __init__(self, x, y, z=GRID_Z):
-        super().__init__(x, y, z, width=40, depth=40, height=4)
+        super().__init__(x, y, z, width=100, depth=100, height=0)
         self.active = True
         self.saved = False
 
@@ -747,6 +747,7 @@ def setup_level(level):
         field_size = 1600
         build_level3_bounds(field_size, 2000)
         place_player(-field_size + 120, 0)
+        place_checkpoint_tile(-1500, -100)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -926,6 +927,7 @@ def draw_hud_stats():
 # --------------------------- Drawing --------------------------
 
 def draw_floor():
+    global current_level
     # Base slab
     floor.draw()
     # Wood tile overlay: draw alternating quads in two wood tones
@@ -952,7 +954,7 @@ def draw_floor():
                     glVertex3f(x,     y,     z)
                     glVertex3f(x+tile,y,     z)
                     glVertex3f(x+tile,y+tile,z)
-                    glVertex3f(x,     y+tile,z)
+                    glVertex3f(x,     y+tile,z) 
         glEnd()
         # pass 2: other color on (ix+iy) odd
         glColor3f(*get_color('dark_brown'))
@@ -1100,7 +1102,7 @@ def animate():
                         except: pass
                         break
         for ct in checkpoint_tiles:
-            if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 20:
+            if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 100:
                 set_checkpoint((ct.x, ct.y))
                 ct.saved = True
                 # Show message (simple: set a global for a few frames)
