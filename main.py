@@ -1261,9 +1261,8 @@ def clicks(button, state, x, y):
             set_fov(True)
         else:
             scoped = False
-            if pre_scope_camera_mode == CAM_THIRD:
-                set_camera_mode(CAM_THIRD)
             set_fov(False)
+            set_camera_mode(pre_scope_camera_mode)
     # wheel
     if button == 3:  # wheel up
         change_slot(-1)
