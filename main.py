@@ -756,7 +756,7 @@ def draw_inventory_bar():
 def draw_crosshair(scoped_mode):
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
-    cx, cy = WIN_W/2, WIN_H/2
+    cx, cy = WIN_W/2, WIN_H/2 - 21
     glColor3f(1,1,1)
     glBegin(GL_LINES)
     if scoped_mode:
@@ -1190,7 +1190,7 @@ def shoot_handgun():
     vx = math.cos(ang)*8.0
     vy = math.sin(ang)*8.0
     dmg = player.damage
-    bullets.append(Bullet(head.x, head.y, head.z, vx, vy, dmg))
+    bullets.append(Bullet((head.x + math.cos(ang) * 55), (head.y + math.sin(ang) * 55), head.z - 15, vx, vy, dmg))
 
 portal_toggle = True  # alternate blue/red
 
