@@ -34,6 +34,9 @@ camera_smooth = 0.15
 cam_eye = None
 cam_cen = None
 
+checkpoint_tiles = []
+GRID_Z = 10
+
 # --------------------------- Utils / Low-level ----------------
 
 def clamp(v, lo, hi):
@@ -129,6 +132,23 @@ class Entity:
         self.x = ax + dx * math.cos(rad) - dy * math.sin(rad)
         self.y = ay + dx * math.sin(rad) + dy * math.cos(rad)
         self.bbox_sync()
+
+class CheckpointTile(Entity):
+    def __init__(self, x, y, z=GRID_Z):
+        super().__init__(x, y, z, width=40, depth=40, height=4)
+        self.active = True
+        self.saved = False
+
+    def draw(self):
+        glColor3f(0.2, 0.8, 0.2)  # bright green
+        glPushMatrix()
+        glTranslatef(self.x, self.y, self.z)
+        glScalef(self.width, self.depth, self.height)
+        glutSolidCube(1)
+        glPopMatrix()
+
+def place_checkpoint_tile(x, y):
+    checkpoint_tiles.append(CheckpointTile(x, y))
 
 class Shape3D(Entity):
     quadric = gluNewQuadric()
@@ -587,7 +607,6 @@ class Cam3rd:
 
 # --------------------------- Game State ------------------------
 
-GRID_Z = 10
 floor = Box('toothpaste', 0, 0, GRID_Z/2, 0,0,0, 1000, 1000, GRID_Z)
 player = StickPlayer(0, 0, GRID_Z, 0)
 cam1 = Cam3rd(50, -200, 200, 0,0,0, 0,0,1)
@@ -890,6 +909,10 @@ def draw_hud_stats():
     if font is not None:
         for ch in text:
             glutBitmapCharacter(font, ord(ch))
+    if globals().get('checkpoint_msg', 0) > 0:
+        draw_text(WIN_W//2 - 80, WIN_H//2 + 80, "Checkpoint Saved!")
+        globals()['checkpoint_msg'] -= 1
+        
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 # --------------------------- Drawing --------------------------
@@ -974,7 +997,9 @@ def display():
     # Menus
     if paused:
         draw_menu()
-
+    for ct in checkpoint_tiles:
+        ct.draw()
+    
     glutSwapBuffers()
 
 # --------------------------- Menus ----------------------------
@@ -1066,6 +1091,13 @@ def animate():
                         try: bullets.remove(b)
                         except: pass
                         break
+        for ct in checkpoint_tiles:
+            if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 20:
+                set_checkpoint((ct.x, ct.y))
+                ct.saved = True
+                # Show message (simple: set a global for a few frames)
+                globals()['checkpoint_msg'] = 60  # show for 60 frames
+                
         # pickups physics
         for p in pickups:
             p['vz'] -= 0.3
@@ -1185,6 +1217,9 @@ def keys(key, x, y):
             set_camera_mode(CAM_TOPDOWN)
         else:
             set_camera_mode(pre_topdown_camera_mode)
+            
+    if k in (b'c', b'C'):
+    load_checkpoint()
 
 
 def key_up(key, x, y):
