@@ -753,7 +753,7 @@ def draw_inventory_bar():
 def draw_crosshair(scoped_mode):
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
-    cx, cy = WIN_W/2, WIN_H/2
+    cx, cy = WIN_W/2, WIN_H/2 - 21
     glColor3f(1,1,1)
     glBegin(GL_LINES)
     if scoped_mode:
