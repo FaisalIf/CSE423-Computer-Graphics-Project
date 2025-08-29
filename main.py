@@ -1147,7 +1147,7 @@ def shoot_handgun():
     vx = math.cos(ang)*8.0
     vy = math.sin(ang)*8.0
     dmg = player.damage
-    bullets.append(Bullet(head.x, head.y, head.z, vx, vy, dmg))
+    bullets.append(Bullet(head.x + 55, head.y, head.z - 15, vx, vy, dmg))
 
 portal_toggle = True  # alternate blue/red
 
