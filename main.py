@@ -675,7 +675,8 @@ def setup_level(level):
             chests.append(c)
     # enemies
     if level==1:
-        pass
+        field_size = 1600
+        build_level3_bounds(field_size, 2000)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -693,7 +694,7 @@ def setup_level(level):
     # timer/score
     start_time = time.time()
 
-def build_level3_bounds(field_size):
+def build_level3_bounds(field_size, wall_height = 200):
     # Set floor to cover entire field in grass green
     global floor
     size = (field_size + 150) * 2  # a bit larger than field for coverage
@@ -701,7 +702,7 @@ def build_level3_bounds(field_size):
     floor = Box('dark_brown', 0, 0, GRID_Z/2, 0,0,0, size, size, GRID_Z)
     # Build four tall mahogany walls bordering the field
     wall_thick = 20
-    wall_height = 200
+    wall_height = wall_height
     half = field_size
     zc = GRID_Z + wall_height/2
     # Left and right walls (parallel to Y axis)
