@@ -60,6 +60,9 @@ _COLORS = {
     'black': (0.0, 0.0, 0.0),
     'grass_green': (0.2, 0.8, 0.2),
     'white': (1.0, 1.0, 1.0),
+    # custom chest colors (from hex 0F0E0E and 541212)
+    'chest_dark': (0.0588, 0.0549, 0.0549),
+    'chest_maroon': (0.3294, 0.0706, 0.0706),
 }
 
 
@@ -236,13 +239,13 @@ class Chest(CompoundEntity):
     def __init__(self, x, y, ground_z, rx=0, ry=0, rz=0, w=60, d=40, h=40):
         base_h = 0.6*h
         base_z = ground_z + base_h/2
-        base = Box('dark_brown', x, y, base_z, rx, ry, rz, w, d, base_h)
+        base = Box('chest_dark', x, y, base_z, rx, ry, rz, w, d, base_h)
         ins_z = ground_z + base_h
-        ins_1 = Box('dark_brown', x, y, ins_z-10, rx, ry, rz, w-10, d-10, 0)
-        ins_2 = Box('brown', x, y, ins_z+10, rx, ry, rz, w-10, d-10, 0)
+        ins_1 = Box('chest_dark', x, y, ins_z-10, rx, ry, rz, w-10, d-10, 0)
+        ins_2 = Box('chest_maroon', x, y, ins_z+10, rx, ry, rz, w-10, d-10, 0)
         lid_h = h - base_h
         lid_z = ground_z + base_h + lid_h/2
-        lid = Box('brown', x, y, lid_z, rx, ry, rz, w, d, lid_h)
+        lid = Box('chest_maroon', x, y, lid_z, rx, ry, rz, w, d, lid_h)
         super().__init__(base, ins_1, lid, ins_2)
         self.closed = True
         self.contains = None  # will be set to item name
@@ -253,7 +256,7 @@ class Chest(CompoundEntity):
         lid.rotate_x(-135, lid.y_max, lid.z_min)
         ins_2.rotate_x(-135, lid.y_max, lid.z_min)
         ins_1.color = get_color('gold')
-        ins_2.color = get_color('dark_brown')
+        ins_2.color = get_color('chest_dark')
         self.closed = False
     def close(self):
         ins_1 = self.entities[1]
@@ -261,8 +264,8 @@ class Chest(CompoundEntity):
         ins_2 = self.entities[3]
         lid.rotate_x(135, lid.y_max, lid.z_min)
         ins_2.rotate_x(135, lid.y_max, lid.z_min)
-        ins_1.color = get_color('dark_brown')
-        ins_2.color = get_color('brown')
+        ins_1.color = get_color('chest_dark')
+        ins_2.color = get_color('chest_maroon')
         self.closed = True
     def toggle(self):
         if self.closed: self.open()
@@ -694,9 +697,10 @@ def setup_level(level):
     # checkpoints
     checkpoints.extend([(-200,-200), (0,0), (300,200)])
     last_checkpoint = (0,0)
-    # keys scattered (esp L2+)
-    if level > 1:
-        for _ in range(2 if level==1 else (3 if level==2 else 0)):
+    # keys scattered
+    # Level 2: a few random keys around the origin
+    if level == 2:
+        for _ in range(3):
             key_positions.append((random.randint(-300,300), random.randint(-300,300)))
     # chests
     if level > 1:
@@ -724,6 +728,12 @@ def setup_level(level):
         boss_spawned = any(e.is_boss for e in enemies)
         # Build boundary walls and grass floor for the whole field
         build_level3_bounds(field_size)
+        # Ensure equal number of keys as chests within the field
+        pad = 80
+        for _ in range(len(chests)):
+            kx = random.randint(-field_size+pad, field_size-pad)
+            ky = random.randint(-field_size+pad, field_size-pad)
+            key_positions.append((kx, ky))
     # timer/score
     start_time = time.time()
 
