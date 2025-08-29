@@ -1219,7 +1219,7 @@ def keys(key, x, y):
             set_camera_mode(pre_topdown_camera_mode)
             
     if k in (b'c', b'C'):
-    load_checkpoint()
+        load_checkpoint()
 
 
 def key_up(key, x, y):
