@@ -692,17 +692,20 @@ def setup_level(level):
     checkpoints.extend([(-200,-200), (0,0), (300,200)])
     last_checkpoint = (0,0)
     # keys scattered (esp L2+)
-    for _ in range(2 if level==1 else (3 if level==2 else 0)):
-        key_positions.append((random.randint(-300,300), random.randint(-300,300)))
+    if level > 1:
+        for _ in range(2 if level==1 else (3 if level==2 else 0)):
+            key_positions.append((random.randint(-300,300), random.randint(-300,300)))
     # chests
-    for i in range(2 if level==1 else 3):
-        cx = random.randint(-250,250); cy = random.randint(-250,250)
-        c = Chest(cx, cy, GRID_Z)
-        c.contains = random.choice(['ammo','Nourishment','Aegis','Shard','portalgun'])
-        chests.append(c)
+    if level > 1:
+        for i in range(2 if level==1 else 3):
+            cx = random.randint(-250,250); cy = random.randint(-250,250)
+            c = Chest(cx, cy, GRID_Z)
+            c.contains = random.choice(['ammo','Nourishment','Aegis','Shard','portalgun'])
+            chests.append(c)
     # enemies
     if level==1:
-        for i in range(4): enemies.append(Enemy(random.randint(-200,200), random.randint(-200,200), GRID_Z, False))
+        field_size = 1600
+        build_level3_bounds(field_size, 2000)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -720,7 +723,7 @@ def setup_level(level):
     # timer/score
     start_time = time.time()
 
-def build_level3_bounds(field_size):
+def build_level3_bounds(field_size, wall_height = 200):
     # Set floor to cover entire field in grass green
     global floor
     size = (field_size + 150) * 2  # a bit larger than field for coverage
@@ -728,7 +731,7 @@ def build_level3_bounds(field_size):
     floor = Box('dark_brown', 0, 0, GRID_Z/2, 0,0,0, size, size, GRID_Z)
     # Build four tall mahogany walls bordering the field
     wall_thick = 20
-    wall_height = 200
+    wall_height = wall_height
     half = field_size
     zc = GRID_Z + wall_height/2
     # Left and right walls (parallel to Y axis)
@@ -1242,8 +1245,8 @@ def shoot_handgun():
     # bullet spawns at player head / gun tip forward
     head = player.head_entity()
     ang = math.radians(player.yaw)
-    vx = math.cos(ang)*8.0
-    vy = math.sin(ang)*8.0
+    vx = math.cos(ang)*16
+    vy = math.sin(ang)*16
     dmg = player.damage
     bullets.append(Bullet((head.x + math.cos(ang) * 55), (head.y + math.sin(ang) * 55), head.z - 15, vx, vy, dmg))
 
