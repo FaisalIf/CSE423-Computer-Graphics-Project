@@ -727,7 +727,7 @@ def setup_level(level):
     # timer/score
     start_time = time.time()
 
-def build_level3_bounds(field_size, wall_height = 200):
+def build_level3_bounds(field_size, wall_height = 800):
     # Set floor to cover entire field in grass green
     global floor
     size = (field_size + 150) * 2  # a bit larger than field for coverage
@@ -817,14 +817,21 @@ def draw_radar():
         a = 2*math.pi*i/40
         glVertex2f(cx + R*math.cos(a), cy + R*math.sin(a))
     glEnd()
+    # player icon at center (small upward-pointing triangle)
+    glColor3f(1,1,1)
+    glBegin(GL_TRIANGLES)
+    glVertex2f(cx,     cy+8)
+    glVertex2f(cx-6,   cy-4)
+    glVertex2f(cx+6,   cy-4)
+    glEnd()
     # plot enemies/keys/chests within 400 units
     def to_local(px,py):
         dx = px - player.x; dy = py - player.y
         d = math.hypot(dx,dy)
         if d>400: return None
         scale = R/400.0
-        # rotate by -yaw so forward is up
-        yaw_rad = -math.radians(player.yaw)
+        # rotate by (90 - yaw) so player's forward faces up (north)
+        yaw_rad = math.radians(90 - player.yaw)
         lx = dx*math.cos(yaw_rad) - dy*math.sin(yaw_rad)
         ly = dx*math.sin(yaw_rad) + dy*math.cos(yaw_rad)
         return (cx + lx*scale, cy + ly*scale)
