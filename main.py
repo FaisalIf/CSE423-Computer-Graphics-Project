@@ -818,7 +818,7 @@ def draw_inventory_bar():
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     slot_w = 85; slot_h = 50; x0 = 20; y0 = 20
     for i in range(1,10):
-        x = x0 + (i-1)*(slot_w+6)
+        x = x0 + (i-1)*(slot_w+1)
         y = y0
         if i==selected_slot:
             glColor3f(1,1,1)
@@ -826,6 +826,14 @@ def draw_inventory_bar():
             glColor3f(0.5,0.5,0.5)
         glBegin(GL_QUADS)
         glVertex2f(x,y); glVertex2f(x+slot_w,y); glVertex2f(x+slot_w,y+slot_h); glVertex2f(x,y+slot_h)
+        glEnd()
+        glColor3f(0,0,0)
+        glLineWidth(2)
+        glBegin(GL_LINES)
+        glVertex2f(x, y);         glVertex2f(x+slot_w, y)         # Top
+        glVertex2f(x+slot_w, y);  glVertex2f(x+slot_w, y+slot_h)  # Right
+        glVertex2f(x+slot_w, y+slot_h); glVertex2f(x, y+slot_h)   # Bottom
+        glVertex2f(x, y+slot_h);  glVertex2f(x, y)                # Left
         glEnd()
         draw_text(x+6, y+slot_h-18, str(i), (0, 0, 0))
         # item label
