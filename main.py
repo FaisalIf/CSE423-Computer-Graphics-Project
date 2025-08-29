@@ -7,16 +7,16 @@ from OpenGL import GLUT as GLUTmod
 import math, random, time
 
 #Variables for window and camera
-WIN_W, WIN_H = 1000, 800
-ASPECT = WIN_W/ WIN_H
+window_width, window_height = 1000, 800
+aspect_ratio = window_width/ window_height
 fovY_default = 77.3
 fovY_scoped  = 40.0
 
 #Camera modes
-CAM_FIRST  = 0
-CAM_THIRD  = 1
-CAM_TOPDOWN = 2 
-camera_mode = CAM_THIRD
+cam_first  = 0
+cam_third  = 1
+cam_topdown = 2 
+camera_mode = cam_third
 
 #Current FOV; updated when scoping
 fovY = fovY_default
@@ -49,13 +49,14 @@ level1_all_enemies_msg = ""
 level1_all_enemies_msg_active = False
 level1_enemies_spawned = False  # Track if the 5 enemies have been spawned
 
-# --------------------------- Utils / Low-level ----------------
+#Utility functions
 
+#To keep stats within valid range
 def clamp(v, lo, hi):
     return max(lo, min(hi, v))
 
-
-_COLORS = {
+#Preset of colors to use later
+preset_colors = {
     'grey': (0.6, 0.6, 0.6),
     'dark_grey': (0.15, 0.15, 0.15),
     'orange': (1.0, 0.55, 0.0),
@@ -77,43 +78,67 @@ _COLORS = {
     'white': (1.0, 1.0, 1.0),
     'chest_dark': (0.0588, 0.0549, 0.0549),
     'chest_maroon': (0.3294, 0.0706, 0.0706),
+    'bright_green': (0.2, 0.8, 0.2)
 }
 
-
+#Get color, if not found, return white as default
 def get_color(name):
-    return _COLORS.get(name, (1.0, 1.0, 1.0))
+    return preset_colors.get(name, (1.0, 1.0, 1.0))
 
-
-def draw_text(x, y, text, color = (1, 1, 1)):
+#Draw text on the screen
+def draw_text(x, y, text, color = (1, 1, 1), font=GLUT_BITMAP_HELVETICA_18):
     glColor3f(*color)
+    glMatrixMode(GL_PROJECTION)
+    glPushMatrix()
+    glLoadIdentity()
+    
+    # Set up an orthographic projection that matches window coordinates
+    gluOrtho2D(0, 1000, 0, 800)  # left, right, bottom, top
+
+    
+    glMatrixMode(GL_MODELVIEW)
+    glPushMatrix()
+    glLoadIdentity()
+    
+    # Draw text at (x, y) in screen coordinates
     glRasterPos2f(x, y)
-    for ch in str(text):
-        glutBitmapCharacter(GLUTmod.GLUT_BITMAP_9_BY_15, ord(ch))
+    for ch in text:
+        glutBitmapCharacter(font, ord(ch))
+    
+    # Restore original projection and modelview matrices
+    glPopMatrix()
+    glMatrixMode(GL_PROJECTION)
+    glPopMatrix()
+    glMatrixMode(GL_MODELVIEW)
 
-
-# --------------------------- Core Entity ---------------------
+#Core functions
 
 class Entity:
     def __init__(self, x, y, z, rx=0, ry=0, rz=0, width=1, depth=1, height=1):
-        self.x = x; self.y = y; self.z = z
-        self.rx = rx; self.ry = ry; self.rz = rz
-        self.width = width; self.depth = depth; self.height = height
-        self.bbox_sync()
+        self.x, self.y, self.z = x, y, z
+        self.rx, self.ry, self.rz = rx, ry, rz
+        self.width, self.depth, self.height = width, depth, height
+        self.sync_bounding_box()
 
-    def bbox_sync(self):
+    def sync_bounding_box(self):
         # Treat (x,y,z) as center of the volume for AABB
         self.x_min = self.x - self.width/2;  self.x_max = self.x + self.width/2
         self.y_min = self.y - self.depth/2;  self.y_max = self.y + self.depth/2
         self.z_min = self.z - self.height/2; self.z_max = self.z + self.height/2
 
     def draw(self):
+        #To be drawn by the child classes
         pass
 
     def check_collision(self, other):
+        #Checks collision for all the boundaries
         return not (
-            self.x_max < other.x_min or self.x_min > other.x_max or
-            self.y_max < other.y_min or self.y_min > other.y_max or
-            self.z_max < other.z_min or self.z_min > other.z_max
+            self.x_max < other.x_min or 
+            self.x_min > other.x_max or
+            self.y_max < other.y_min or 
+            self.y_min > other.y_max or
+            self.z_max < other.z_min or 
+            self.z_min > other.z_max
         )
 
     # Rotations around pivot points in the respective planes
@@ -124,7 +149,7 @@ class Entity:
         dz = self.z - az
         self.y = ay + dy * math.cos(rad) - dz * math.sin(rad)
         self.z = az + dy * math.sin(rad) + dz * math.cos(rad)
-        self.bbox_sync()
+        self.sync_bounding_box()
 
     def rotate_y(self, ry, ax, az):
         self.ry += ry
@@ -133,7 +158,7 @@ class Entity:
         dz = self.z - az
         self.x = ax + dx * math.cos(rad) + dz * math.sin(rad)
         self.z = az - dx * math.sin(rad) + dz * math.cos(rad)
-        self.bbox_sync()
+        self.sync_bounding_box()
 
     def rotate_z(self, rz, ax, ay):
         self.rz += rz
@@ -142,8 +167,9 @@ class Entity:
         dy = self.y - ay
         self.x = ax + dx * math.cos(rad) - dy * math.sin(rad)
         self.y = ay + dx * math.sin(rad) + dy * math.cos(rad)
-        self.bbox_sync()
+        self.sync_bounding_box()
 
+#Class for the implementation of checkpoint tiles.
 class CheckpointTile(Entity):
     def __init__(self, x, y, z=GRID_Z):
         super().__init__(x, y, z, width=100, depth=100, height=0)
@@ -151,13 +177,18 @@ class CheckpointTile(Entity):
         self.saved = False
 
     def draw(self):
-        glColor3f(0.2, 0.8, 0.2)  # bright green
+        glColor3f(*get_color('bright_green'))
         glPushMatrix()
         glTranslatef(self.x, self.y, self.z)
         glScalef(self.width, self.depth, self.height)
         glutSolidCube(1)
         glPopMatrix()
-        
+
+#To place the checkpoint tiles on individual levels
+def place_checkpoint_tile(x, y):
+    checkpoint_tiles.append(CheckpointTile(x, y))
+
+# Class for the implementation of level exit tiles.
 class LevelExitTile(Entity):
     def __init__(self, x, y, z=GRID_Z):
         super().__init__(x, y, z, width=100, depth=100, height=8)
@@ -171,9 +202,7 @@ class LevelExitTile(Entity):
         glutSolidCube(1)
         glPopMatrix()
 
-def place_checkpoint_tile(x, y):
-    checkpoint_tiles.append(CheckpointTile(x, y))
-    
+# To place the exit tiles on individual levels
 def place_exit_tile(x, y):
     global exit_tiles
     exit_tiles.append(LevelExitTile(x, y))
@@ -187,7 +216,7 @@ class Shape3D(Entity):
 
 class Sphere(Shape3D):
     def __init__(self, color, x, y, z, rx, ry, rz, *dims):
-        # If only a single radius was passed, expand to (r, r, r)
+        #If only a single radius was passed, expand to (r, r, r)
         if len(dims) == 1:
             r = dims[0]
             dims = (r, r, r)
@@ -200,15 +229,16 @@ class Sphere(Shape3D):
         glRotatef(self.rx, 1, 0, 0)
         glRotatef(self.ry, 0, 1, 0)
         glRotatef(self.rz, 0, 0, 1)
-        # Use the three stored dimensions; for heads these are equal so it's round
+        #Use the three stored dimensions; for heads these are equal so it's round
         glScalef(self.width, self.depth, self.height)
-        # Higher tessellation for a smoother, circular look
+        #Higher tessellation for a smoother, circular look
         gluSphere(self.quadric, 1, 24, 24)
         glPopMatrix()
 
 class Box(Shape3D):
     def __init__(self, color, x, y, z, rx, ry, rz, *dims):
         super().__init__(color, x, y, z, rx, ry, rz, *dims)
+        
     def draw(self):
         glColor3f(*self.color)
         glPushMatrix()
@@ -229,6 +259,7 @@ class Cylinder(Shape3D):
         self.top_radius = radius if top_radius is None else top_radius
         self.height = height
         self.anchor = anchor  # 'center'|'base'|'top'
+        
     def draw(self):
         glColor3f(*self.color)
         glPushMatrix()
@@ -269,19 +300,23 @@ class CompoundEntity(Entity):
         self.x_min = x_min; self.y_min = y_min; self.z_min = z_min
         self.x_max = x_max; self.y_max = y_max; self.z_max = z_max
         self.entities = list(entities)
+        
     def draw(self):
-        for e in self.entities: e.draw()
+        for entity in self.entities: entity.draw()
+
     def rotate_x(self, rx):
         self.rx += rx
-        for e in self.entities: e.rotate_x(rx, self.y, self.z)
+        for entity in self.entities: entity.rotate_x(rx, self.y, self.z)
+
     def rotate_y(self, ry):
         self.ry += ry
-        for e in self.entities: e.rotate_y(ry, self.x, self.z)
+        for entity in self.entities: entity.rotate_y(ry, self.x, self.z)
+
     def rotate_z(self, rz):
         self.rz += rz
-        for e in self.entities: e.rotate_z(rz, self.x, self.y)
+        for entity in self.entities: entity.rotate_z(rz, self.x, self.y)
 
-# --------------------------- Game Models -----------------------
+#Game models
 
 class Chest(CompoundEntity):
     def __init__(self, x, y, ground_z, rx=0, ry=0, rz=0, w=60, d=40, h=40):
@@ -297,6 +332,7 @@ class Chest(CompoundEntity):
         super().__init__(base, ins_1, lid, ins_2)
         self.closed = True
         self.contains = None  # will be set to item name
+        
     def open(self):
         ins_1 = self.entities[1]
         lid = self.entities[2]
@@ -306,6 +342,7 @@ class Chest(CompoundEntity):
         ins_1.color = get_color('gold')
         ins_2.color = get_color('chest_dark')
         self.closed = False
+        
     def close(self):
         ins_1 = self.entities[1]
         lid = self.entities[2]
@@ -315,13 +352,13 @@ class Chest(CompoundEntity):
         ins_1.color = get_color('chest_dark')
         ins_2.color = get_color('chest_maroon')
         self.closed = True
+        
     def toggle(self):
         if self.closed: self.open()
         else: self.close()
 
 class StickPlayer(CompoundEntity):
     def __init__(self, x, y, ground_z, rz):
-        # Proportions inspired by reference
         self.leg_h = 40.0
         self.body_h = 40.0
         self.head_r = 12.0
@@ -376,8 +413,8 @@ class StickPlayer(CompoundEntity):
     def move(self, dx, dy):
         self.x += dx; self.y += dy
         for e in self.entities:
-            e.x += dx; e.y += dy; e.bbox_sync()
-        self.bbox_sync()
+            e.x += dx; e.y += dy; e.sync_bounding_box()
+        self.sync_bounding_box()
 
     def stand_center_z(self):
         return self.on_ground_z + 0.5*self.leg_h
@@ -390,15 +427,15 @@ class StickPlayer(CompoundEntity):
         if self.jump_v != 0:
             self.z += self.jump_v
             for e in self.entities:
-                e.z += self.jump_v; e.bbox_sync()
+                e.z += self.jump_v; e.sync_bounding_box()
             self.jump_v -= 0.35
             if self.z <= self.stand_center_z():
                 dz = self.stand_center_z() - self.z
                 self.z += dz
                 for e in self.entities:
-                    e.z += dz; e.bbox_sync()
+                    e.z += dz; e.sync_bounding_box()
                 self.jump_v = 0.0
-        self.bbox_sync()
+        self.sync_bounding_box()
 
     def draw(self):
         hip_z = self.on_ground_z + self.leg_h
@@ -422,19 +459,20 @@ class StickPlayer(CompoundEntity):
         glColor3f(*get_color('light_blue'))
         glPushMatrix(); glTranslatef(-self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1); glPopMatrix()
         glPushMatrix(); glTranslatef( self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
+        
         # weapon
-        if selected_slot == 2:  # Rifle slot
+        if selected_slot == 2: 
             glPushMatrix()
             glTranslatef(0, 0, self.arm_h - 2)
             glRotatef(90, 0, 1, 0)
-            glColor3f(0.05, 0.05, 0.05)  # Dark black
-            gluCylinder(Sphere.quadric, 4, 4, 60, 16, 1)  # Longer cylinder
+            glColor3f(0.05, 0.05, 0.05) 
+            gluCylinder(Sphere.quadric, 4, 4, 60, 16, 1) 
             glPopMatrix()
         else:
             glPushMatrix()
             glTranslatef(0, 0, self.arm_h - 2)
             glRotatef(90, 0, 1, 0)
-            glColor3f(0.3, 0.3, 0.3)  # Default stick color
+            glColor3f(0.3, 0.3, 0.3)
             gluCylinder(Sphere.quadric, 3, 3, 30, 12, 1)
             glPopMatrix()
         glPopMatrix()
@@ -539,7 +577,7 @@ class Enemy(CompoundEntity):
         self._pulse_scale = s
         # Keep bbox updated for collisions
         for e in self.entities:
-            e.width *= s; e.depth *= s; e.height *= s; e.bbox_sync()
+            e.width *= s; e.depth *= s; e.height *= s; e.sync_bounding_box()
             e.width /= s; e.depth /= s; e.height /= s
 
         # chase (speed is 0 for now per user setting)
@@ -550,8 +588,8 @@ class Enemy(CompoundEntity):
         vy = self.speed * (dy / d)
         self.x += vx; self.y += vy
         for e in self.entities:
-            e.x += vx; e.y += vy; e.bbox_sync()
-        self.bbox_sync()
+            e.x += vx; e.y += vy; e.sync_bounding_box()
+        self.sync_bounding_box()
 
         if self.is_boss:
             self.shoot_cool -= 1
@@ -676,7 +714,7 @@ red_portal  = Portal('red')
 
 # scope
 scoped = False
-pre_scope_camera_mode = CAM_THIRD
+pre_scope_camera_mode = cam_third
 
 # checkpoints
 checkpoints = []
@@ -699,10 +737,10 @@ def camera():
     # FOV (projection)
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
-    gluPerspective(fovY, ASPECT, 0.1, 5000)
+    gluPerspective(fovY, aspect_ratio, 0.1, 5000)
     glMatrixMode(GL_MODELVIEW)
 
-    if camera_mode == CAM_THIRD:
+    if camera_mode == cam_third:
         # follow player with planar offsets relative to yaw, z locked
         yaw_rad = math.radians(player.yaw)
         fx, fy = math.cos(yaw_rad), math.sin(yaw_rad)  # forward
@@ -724,7 +762,7 @@ def camera():
         cam_cen[1] += (des_cen[1]-cam_cen[1])*(camera_smooth*1.2)
         cam_cen[2] += (des_cen[2]-cam_cen[2])*(camera_smooth*1.2)
         gluLookAt(cam_eye[0],cam_eye[1],cam_eye[2], cam_cen[0],cam_cen[1],cam_cen[2], 0,0,1)
-    elif camera_mode == CAM_FIRST:
+    elif camera_mode == cam_first:
         # first person from head (no smoothing for responsiveness)
         head = player.head_entity()
         ex,ey,ez = head.x, head.y, head.z
@@ -732,7 +770,7 @@ def camera():
         dy = math.sin(math.radians(player.yaw))
         cam_eye = None; cam_cen = None  # reset smoothing when switching back later
         gluLookAt(ex,ey,ez, ex+dx*50, ey+dy*50, ez, 0,0,1)
-    elif camera_mode == CAM_TOPDOWN:
+    elif camera_mode == cam_topdown:
         gluLookAt(0, 0, 2500, 0, 0, 0, 1, 0, 0)
 
 # --------------------------- Level Setup ----------------------
@@ -846,7 +884,7 @@ def apply_pickup(name):
 # --------------------------- UI (2D) --------------------------
 
 def draw_inventory_bar():
-    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     slot_w = 85; slot_h = 50; x0 = 20; y0 = 20
     for i in range(1,10):
@@ -875,9 +913,9 @@ def draw_inventory_bar():
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 def draw_crosshair(scoped_mode):
-    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
-    cx, cy = WIN_W/2, WIN_H/2 - 21
+    cx, cy = window_width/2, window_height/2 - 21
     glColor3f(1,1,1)
     glBegin(GL_LINES)
     if scoped_mode:
@@ -892,9 +930,9 @@ def draw_crosshair(scoped_mode):
 
 def draw_radar():
     # very simple 2D circle + dots around player showing nearby objects
-    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
-    cx, cy, R = WIN_W-110, 110, 90
+    cx, cy, R = window_width-110, 110, 90
     # circle approx
     glColor3f(1,1,1)
     glBegin(GL_LINE_LOOP)
@@ -939,10 +977,10 @@ def draw_radar():
 
 def draw_hud_stats():
     # Fixed-position HUD text in top-left corner using 2D orthographic projection
-    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     glColor3f(1,1,1)
-    x, y = 10, WIN_H - 24
+    x, y = 10, window_height - 24
     text = f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Rifle Ammo: {player.inventory['rifle_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}  Best: {int(best_score)}  Loads:{load_uses_left}"
     glRasterPos2f(x, y)
     font = globals().get('GLUT_BITMAP_HELVETICA_18', None)
@@ -950,7 +988,7 @@ def draw_hud_stats():
         for ch in text:
             glutBitmapCharacter(font, ord(ch))
     if globals().get('checkpoint_msg', 0) > 0:
-        draw_text(WIN_W//2 - 80, WIN_H//2 + 80, "Checkpoint Saved!")
+        draw_text(window_width//2 - 80, window_height//2 + 80, "Checkpoint Saved!")
         globals()['checkpoint_msg'] -= 1
         
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
@@ -1023,7 +1061,7 @@ def display():
     for b in bullets: b.draw()
     blue_portal.draw(); red_portal.draw()
     # player model (hide head when in first-person)
-    player.ensure_head_visibility(camera_mode==CAM_THIRD)
+    player.ensure_head_visibility(camera_mode==cam_third)
     player.draw()
 
     # HUD
@@ -1036,43 +1074,43 @@ def display():
         draw_crosshair(False)
     
     if level1_msg_active and level1_start_msg:
-        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
         glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
         glColor3f(0,0,0)
         glBegin(GL_QUADS)
-        glVertex2f(WIN_W//2-240, WIN_H//2+60)
-        glVertex2f(WIN_W//2+240, WIN_H//2+60)
-        glVertex2f(WIN_W//2+240, WIN_H//2+120)
-        glVertex2f(WIN_W//2-240, WIN_H//2+120)
+        glVertex2f(window_width//2-240, window_height//2+60)
+        glVertex2f(window_width//2+240, window_height//2+60)
+        glVertex2f(window_width//2+240, window_height//2+120)
+        glVertex2f(window_width//2-240, window_height//2+120)
         glEnd()
-        draw_text(WIN_W//2-200, WIN_H//2+80, level1_start_msg, (1,1,1))
+        draw_text(window_width//2-200, window_height//2+80, level1_start_msg, (1,1,1))
         glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
         
     
     if level1_checkpoint_msg_active and level1_checkpoint_msg:
-        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
         glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
         glColor3f(0,0,0)
         glBegin(GL_QUADS)
-        glVertex2f(WIN_W//2-240, WIN_H//2+10)
-        glVertex2f(WIN_W//2+240, WIN_H//2+10)
-        glVertex2f(WIN_W//2+240, WIN_H//2+70)
-        glVertex2f(WIN_W//2-240, WIN_H//2+70)
+        glVertex2f(window_width//2-240, window_height//2+10)
+        glVertex2f(window_width//2+240, window_height//2+10)
+        glVertex2f(window_width//2+240, window_height//2+70)
+        glVertex2f(window_width//2-240, window_height//2+70)
         glEnd()
-        draw_text(WIN_W//2-200, WIN_H//2+30, level1_checkpoint_msg, (1,1,1))
+        draw_text(window_width//2-200, window_height//2+30, level1_checkpoint_msg, (1,1,1))
         glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
         
     if level1_all_enemies_msg_active and level1_all_enemies_msg:
-        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
         glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
         glColor3f(0,0,0)
         glBegin(GL_QUADS)
-        glVertex2f(WIN_W//2-240, WIN_H//2-60)
-        glVertex2f(WIN_W//2+240, WIN_H//2-60)
-        glVertex2f(WIN_W//2+240, WIN_H//2)
-        glVertex2f(WIN_W//2-240, WIN_H//2)
+        glVertex2f(window_width//2-240, window_height//2-60)
+        glVertex2f(window_width//2+240, window_height//2-60)
+        glVertex2f(window_width//2+240, window_height//2)
+        glVertex2f(window_width//2-240, window_height//2)
         glEnd()
-        draw_text(WIN_W//2-200, WIN_H//2-40, level1_all_enemies_msg, (1,1,1))
+        draw_text(window_width//2-200, window_height//2-40, level1_all_enemies_msg, (1,1,1))
         glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
     # Menus
@@ -1097,20 +1135,20 @@ def draw_menu():
         title = 'Paused'
     else:
         title = 'Demons & Portals'
-    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, WIN_W, 0, WIN_H)
+    glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     # dark overlay
     glColor3f(0,0,0)
     glBegin(GL_QUADS)
-    glVertex2f(0,0); glVertex2f(WIN_W,0); glVertex2f(WIN_W,WIN_H); glVertex2f(0,WIN_H)
+    glVertex2f(0,0); glVertex2f(window_width,0); glVertex2f(window_width,window_height); glVertex2f(0,window_height)
     glEnd()
-    draw_text(WIN_W/2-120, WIN_H-120, title)
+    draw_text(window_width/2-120, window_height-120, title)
     if menu_mode=='title':
-        draw_text(WIN_W/2-200, WIN_H-170, 'Press N for New Game | F1/F2/F3 for Level Tests')
+        draw_text(window_width/2-200, window_height-170, 'Press N for New Game | F1/F2/F3 for Level Tests')
     elif menu_mode=='paused':
-        draw_text(WIN_W/2-250, WIN_H-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
+        draw_text(window_width/2-250, window_height-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
     elif menu_mode in ('win','lose'):
-        draw_text(WIN_W/2-140, WIN_H-170, f'Total Score: {int(score)}')
+        draw_text(window_width/2-140, window_height-170, f'Total Score: {int(score)}')
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 # --------------------------- Update ---------------------------
@@ -1320,9 +1358,9 @@ def keys(key, x, y):
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
     if k in (b't', b'T'):
-        if camera_mode != CAM_TOPDOWN:
+        if camera_mode != cam_topdown:
             pre_topdown_camera_mode = camera_mode
-            set_camera_mode(CAM_TOPDOWN)
+            set_camera_mode(cam_topdown)
         else:
             set_camera_mode(pre_topdown_camera_mode)
             
@@ -1338,7 +1376,7 @@ def key_up(key, x, y):
 def special_keys(key, x, y):
     # arrow keys adjust third-person camera in the X/Y plane (Z locked)
     global third_cam_back, third_cam_side
-    if camera_mode == CAM_THIRD:
+    if camera_mode == cam_third:
         if key == GLUT_KEY_LEFT:
             third_cam_side -= 5
         if key == GLUT_KEY_RIGHT:
@@ -1365,7 +1403,7 @@ def clicks(button, state, x, y):
         if not scoped:
             scoped = True
             pre_scope_camera_mode = camera_mode
-            set_camera_mode(CAM_FIRST)
+            set_camera_mode(cam_first)
             set_fov(True)
         else:
             scoped = False
@@ -1391,7 +1429,7 @@ def set_camera_mode(mode):
     cam_eye = None
     cam_cen = None
     # hide head in first person to avoid blocking view; show in third
-    if mode == CAM_FIRST:
+    if mode == cam_first:
         player.ensure_head_visibility(False)
     else:
         player.ensure_head_visibility(True)
@@ -1400,7 +1438,7 @@ def set_camera_mode(mode):
 def toggle_perspective():
     if scoped:
         return  # scoped locks to first person
-    set_camera_mode(CAM_FIRST if camera_mode==CAM_THIRD else CAM_THIRD)
+    set_camera_mode(cam_first if camera_mode==cam_third else cam_third)
 
 
 def change_slot(delta):
@@ -1534,10 +1572,10 @@ def pause_game(mode='paused'):
 
 
 def main(level=None):
-    global ASPECT
+    global aspect_ratio
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB)  # NO DEPTH
-    glutInitWindowSize(WIN_W, WIN_H)
+    glutInitWindowSize(window_width, window_height)
     glutInitWindowPosition(0, 0)
     glutCreateWindow(b"Demons & Portals")
 
@@ -1551,7 +1589,7 @@ def main(level=None):
 
     # projection once (will reset per frame in camera())
     glMatrixMode(GL_PROJECTION)
-    gluPerspective(fovY, ASPECT, 0.1, 5000)
+    gluPerspective(fovY, aspect_ratio, 0.1, 5000)
 
     # clear color
     bg = get_color('dark_grey')
