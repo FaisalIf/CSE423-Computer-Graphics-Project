@@ -51,6 +51,7 @@ _COLORS = {
     'red': (0.9, 0.1, 0.1),
     'crimson': (0.86, 0.08, 0.24),
     'deep_crimson': (0.6, 0.0, 0.1),
+    'mahogany': (0.30, 0.10, 0.10),
     'magenta': (0.9, 0.1, 0.9),
     'yellow': (0.95, 0.95, 0.1),
     'cyan': (0.1, 0.95, 0.95),
@@ -426,14 +427,15 @@ class Enemy(CompoundEntity):
         else:
             super().__init__(body, head, handL, handR)
 
-        # Behavior/visuals
+        # Behavior/visuals (moved inside __init__)
         self.is_boss = is_boss
         self.base_color = get_color(body_col)
         self.pulse = 0.0
         self.speed = 0.1 if not is_boss else 0
         self.hp = 20 if not is_boss else 120
         self.projectiles = []  # boss only
-        self.shoot_cool = 0
+        # give the boss an initial cooldown so it doesn't start firing instantly
+        self.shoot_cool = 220 if is_boss else 0
         self._pulse_scale = 1.0
 
     def update(self, target):
@@ -460,8 +462,8 @@ class Enemy(CompoundEntity):
         if self.is_boss:
             self.shoot_cool -= 1
             if self.shoot_cool <= 0:
-                # halve firing rate (larger cooldown)
-                self.shoot_cool = 140
+                # further reduce fire rate with a larger cooldown
+                self.shoot_cool = 220
                 bvx = 3.5 * (dx / d)
                 bvy = 3.5 * (dy / d)
                 # much bigger range
@@ -693,18 +695,19 @@ def build_level3_bounds(field_size):
     # Set floor to cover entire field in grass green
     global floor
     size = (field_size + 150) * 2  # a bit larger than field for coverage
-    floor = Box('grass_green', 0, 0, GRID_Z/2, 0,0,0, size, size, GRID_Z)
-    # Build four tall crimson walls bordering the field
+    # base floor set to a dark wood tone; tiles will be drawn on top
+    floor = Box('dark_brown', 0, 0, GRID_Z/2, 0,0,0, size, size, GRID_Z)
+    # Build four tall mahogany walls bordering the field
     wall_thick = 20
     wall_height = 200
     half = field_size
     zc = GRID_Z + wall_height/2
     # Left and right walls (parallel to Y axis)
-    walls.append(Box('deep_crimson', -half-wall_thick/2, 0, zc, 0,0,0, wall_thick, half*2 + wall_thick*2, wall_height))
-    walls.append(Box('deep_crimson',  half+wall_thick/2, 0, zc, 0,0,0, wall_thick, half*2 + wall_thick*2, wall_height))
+    walls.append(Box('mahogany', -half-wall_thick/2, 0, zc, 0,0,0, wall_thick, half*2 + wall_thick*2, wall_height))
+    walls.append(Box('mahogany',  half+wall_thick/2, 0, zc, 0,0,0, wall_thick, half*2 + wall_thick*2, wall_height))
     # Bottom and top walls (parallel to X axis)
-    walls.append(Box('deep_crimson', 0, -half-wall_thick/2, zc, 0,0,0, half*2 + wall_thick*2, wall_thick, wall_height))
-    walls.append(Box('deep_crimson', 0,  half+wall_thick/2, zc, 0,0,0, half*2 + wall_thick*2, wall_thick, wall_height))
+    walls.append(Box('mahogany', 0, -half-wall_thick/2, zc, 0,0,0, half*2 + wall_thick*2, wall_thick, wall_height))
+    walls.append(Box('mahogany', 0,  half+wall_thick/2, zc, 0,0,0, half*2 + wall_thick*2, wall_thick, wall_height))
     # Set playable bounds to inside the walls
     globals()['world_bounds'] = {'min_x': -half, 'max_x': half, 'min_y': -half, 'max_y': half}
 
@@ -823,7 +826,47 @@ def draw_hud_stats():
 # --------------------------- Drawing --------------------------
 
 def draw_floor():
+    # Base slab
     floor.draw()
+    # Wood tile overlay: draw alternating quads in two wood tones
+    # Only paint within current world bounds if available
+    wb = globals().get('world_bounds')
+    if wb:
+        # Static, world-aligned grid covering the whole field so tiles don't move with the player
+        tile = 200.0
+        z = GRID_Z + 0.1  # slightly above slab to avoid z-fighting
+        x0 = math.floor(wb['min_x'] / tile) * tile
+        x1 = math.ceil(wb['max_x'] / tile) * tile
+        y0 = math.floor(wb['min_y'] / tile) * tile
+        y1 = math.ceil(wb['max_y'] / tile) * tile
+        ix_max = int((x1 - x0) / tile)
+        iy_max = int((y1 - y0) / tile)
+        # pass 1: draw one color on (ix+iy) even
+        glColor3f(*get_color('brown'))
+        glBegin(GL_QUADS)
+        for ix in range(ix_max):
+            for iy in range(iy_max):
+                if ((ix + iy) & 1) == 0:
+                    x = x0 + ix*tile
+                    y = y0 + iy*tile
+                    glVertex3f(x,     y,     z)
+                    glVertex3f(x+tile,y,     z)
+                    glVertex3f(x+tile,y+tile,z)
+                    glVertex3f(x,     y+tile,z)
+        glEnd()
+        # pass 2: other color on (ix+iy) odd
+        glColor3f(*get_color('dark_brown'))
+        glBegin(GL_QUADS)
+        for ix in range(ix_max):
+            for iy in range(iy_max):
+                if ((ix + iy) & 1) == 1:
+                    x = x0 + ix*tile
+                    y = y0 + iy*tile
+                    glVertex3f(x,     y,     z)
+                    glVertex3f(x+tile,y,     z)
+                    glVertex3f(x+tile,y+tile,z)
+                    glVertex3f(x,     y+tile,z)
+        glEnd()
     # draw level-3 walls if present
     for w in walls:
         w.draw()
