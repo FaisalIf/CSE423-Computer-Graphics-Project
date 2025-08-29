@@ -1189,8 +1189,8 @@ def shoot_handgun():
     # bullet spawns at player head / gun tip forward
     head = player.head_entity()
     ang = math.radians(player.yaw)
-    vx = math.cos(ang)*8.0
-    vy = math.sin(ang)*8.0
+    vx = math.cos(ang)*16
+    vy = math.sin(ang)*16
     dmg = player.damage
     bullets.append(Bullet((head.x + math.cos(ang) * 55), (head.y + math.sin(ang) * 55), head.z - 15, vx, vy, dmg))
 
