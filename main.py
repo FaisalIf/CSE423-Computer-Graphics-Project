@@ -49,11 +49,14 @@ _COLORS = {
     'brown': (0.55, 0.33, 0.16),
     'gold': (0.9, 0.75, 0.2),
     'red': (0.9, 0.1, 0.1),
+    'crimson': (0.86, 0.08, 0.24),
+    'deep_crimson': (0.6, 0.0, 0.1),
     'magenta': (0.9, 0.1, 0.9),
     'yellow': (0.95, 0.95, 0.1),
     'cyan': (0.1, 0.95, 0.95),
     'toothpaste': (0.1, 0.6, 0.6),
     'black': (0.0, 0.0, 0.0),
+    'grass_green': (0.2, 0.8, 0.2),
     'white': (1.0, 1.0, 1.0),
 }
 
@@ -379,18 +382,32 @@ class StickPlayer(CompoundEntity):
 
 class Enemy(CompoundEntity):
     def __init__(self, x, y, ground_z, is_boss=False):
-        # Randomized body/head colors for variety; boss gets a distinct scheme
+        # Boss gets a scarier, bigger model with grey head and black body
         if is_boss:
-            body_col, head_col = 'magenta', 'yellow'
+            body_col, head_col = 'black', 'grey'
+            body_h = 80.0
+            body_r = 40.0
+            head_r = 40.0
+            # Scarier: add spikes (vertical cylinders) around head
+            spike_r = 2.5
+            spike_h = 30.0
+            spike_count = 8
+            spike_entities = []
+            for i in range(spike_count):
+                angle = 2 * math.pi * i / spike_count
+                sx = x + (body_r + head_r + 10) * math.cos(angle)
+                sy = y + (body_r + head_r + 10) * math.sin(angle)
+                sz = ground_z + body_h + head_r + 10
+                spike = Cylinder('grey', sx, sy, sz, 0, 0, 0, radius=spike_r, height=spike_h, anchor='base')
+                spike_entities.append(spike)
         else:
             palette = ['red', 'orange', 'light_blue', 'cyan', 'yellow']
             body_col = random.choice(palette)
             head_col = random.choice([c for c in palette if c != body_col])
-
-        # Proportions similar to player
-        body_h = 40.0
-        body_r = 20.0
-        head_r = 20.0
+            body_h = 40.0
+            body_r = 20.0
+            head_r = 20.0
+            spike_entities = []
 
         # Core parts
         body = Cylinder(body_col, x, y, ground_z, 0, 0, 0, radius=body_r, height=body_h, anchor='base')
@@ -398,12 +415,16 @@ class Enemy(CompoundEntity):
 
         # Two thin, black, upward-facing hands, slightly farther than body radius
         hand_r = 4.0
-        hand_h = 30.0
+        hand_h = 30.0 if not is_boss else 50.0
         hx = body_r + 5.0
         handL = Cylinder('black', x - hx, y, ground_z + body_h, 0, 0, 0, radius=hand_r, height=hand_h, anchor='base')
         handR = Cylinder('black', x + hx, y, ground_z + body_h, 0, 0, 0, radius=hand_r, height=hand_h, anchor='base')
 
-        super().__init__(body, head, handL, handR)
+        # Compose entity
+        if is_boss:
+            super().__init__(body, head, handL, handR, *spike_entities)
+        else:
+            super().__init__(body, head, handL, handR)
 
         # Behavior/visuals
         self.is_boss = is_boss
@@ -439,10 +460,12 @@ class Enemy(CompoundEntity):
         if self.is_boss:
             self.shoot_cool -= 1
             if self.shoot_cool <= 0:
-                self.shoot_cool = 90
-                bvx = 3.0 * (dx / d)
-                bvy = 3.0 * (dy / d)
-                self.projectiles.append({'x': self.x, 'y': self.y, 'z': self.z + 20, 'vx': bvx, 'vy': bvy, 'life': 400})
+                # halve firing rate (larger cooldown)
+                self.shoot_cool = 140
+                bvx = 3.5 * (dx / d)
+                bvy = 3.5 * (dy / d)
+                # much bigger range
+                self.projectiles.append({'x': self.x, 'y': self.y, 'z': self.z + 20, 'vx': bvx, 'vy': bvy, 'life': 2000})
             for b in self.projectiles:
                 b['x'] += b['vx']; b['y'] += b['vy']
                 b['life'] -= 1
@@ -526,6 +549,8 @@ enemies = []
 chests = []
 key_positions = []  # simple pickups drawn as small boxes
 pickups = []  # items tossed from chests: {'name':str,'x','y','z','vz'}
+walls = []    # level boundary walls
+world_bounds = None  # {'min_x':..,'max_x':..,'min_y':..,'max_y':..}
 
 # gameplay
 paused = True
@@ -615,9 +640,10 @@ def camera():
 # --------------------------- Level Setup ----------------------
 
 def clear_level():
-    enemies.clear(); chests.clear(); key_positions.clear(); pickups.clear()
+    enemies.clear(); chests.clear(); key_positions.clear(); pickups.clear(); walls.clear()
     bullets.clear(); blue_portal.active=False; red_portal.active=False
     checkpoints.clear()
+    globals()['world_bounds'] = None
 
 def setup_level(level):
     global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown
@@ -649,14 +675,38 @@ def setup_level(level):
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
-        for i in range(10): enemies.append(Enemy(random.randint(-400,400), random.randint(-400,400), GRID_Z, False))
-        enemies.append(Enemy(350,350, GRID_Z, True))
+        # Level 3 field: half of previous (from 3200 to 1600)
+        field_size = 1600
+        for i in range(10): enemies.append(Enemy(random.randint(-field_size,field_size), random.randint(-field_size,field_size), GRID_Z, False))
+        # Place boss near a corner
+        enemies.append(Enemy(field_size-100, field_size-100, GRID_Z, True))
         # Fallback: ensure there's at least one boss; if not, spawn one near origin
         if not any(e.is_boss for e in enemies):
             enemies.append(Enemy(180,0, GRID_Z, True))
         boss_spawned = any(e.is_boss for e in enemies)
+        # Build boundary walls and grass floor for the whole field
+        build_level3_bounds(field_size)
     # timer/score
     start_time = time.time()
+
+def build_level3_bounds(field_size):
+    # Set floor to cover entire field in grass green
+    global floor
+    size = (field_size + 150) * 2  # a bit larger than field for coverage
+    floor = Box('grass_green', 0, 0, GRID_Z/2, 0,0,0, size, size, GRID_Z)
+    # Build four tall crimson walls bordering the field
+    wall_thick = 20
+    wall_height = 200
+    half = field_size
+    zc = GRID_Z + wall_height/2
+    # Left and right walls (parallel to Y axis)
+    walls.append(Box('deep_crimson', -half-wall_thick/2, 0, zc, 0,0,0, wall_thick, half*2 + wall_thick*2, wall_height))
+    walls.append(Box('deep_crimson',  half+wall_thick/2, 0, zc, 0,0,0, wall_thick, half*2 + wall_thick*2, wall_height))
+    # Bottom and top walls (parallel to X axis)
+    walls.append(Box('deep_crimson', 0, -half-wall_thick/2, zc, 0,0,0, half*2 + wall_thick*2, wall_thick, wall_height))
+    walls.append(Box('deep_crimson', 0,  half+wall_thick/2, zc, 0,0,0, half*2 + wall_thick*2, wall_thick, wall_height))
+    # Set playable bounds to inside the walls
+    globals()['world_bounds'] = {'min_x': -half, 'max_x': half, 'min_y': -half, 'max_y': half}
 
 # --------------------------- Player Helpers -------------------
 
@@ -774,6 +824,9 @@ def draw_hud_stats():
 
 def draw_floor():
     floor.draw()
+    # draw level-3 walls if present
+    for w in walls:
+        w.draw()
 
 def draw_keys():
     glColor3f(1,1,0)
@@ -1141,7 +1194,19 @@ def update_movement():
     if moving['w']: dx += fx*sp; dy += fy*sp
     if moving['s']: dx -= fx*sp; dy -= fy*sp
     if dx or dy:
-        player.move(dx,dy)
+        # apply movement, but clamp within world bounds if defined
+        new_x = player.x + dx
+        new_y = player.y + dy
+        wb = globals().get('world_bounds')
+        if wb is not None:
+            # keep a small inner padding to avoid intersecting wall geometry
+            pad = 10
+            new_x = clamp(new_x, wb['min_x']+pad, wb['max_x']-pad)
+            new_y = clamp(new_y, wb['min_y']+pad, wb['max_y']-pad)
+            dx = new_x - player.x
+            dy = new_y - player.y
+        if dx or dy:
+            player.move(dx,dy)
 
 # --------------------------- Idle -----------------------------
 
