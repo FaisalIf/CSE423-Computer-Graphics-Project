@@ -1230,7 +1230,7 @@ def draw_hud_stats():
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     glColor3f(1,1,1)
     x, y = 10, window_height - 24
-    text = f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Rifle Ammo: {player.inventory['rifle_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}  Best: {int(best_score)}  Loads:{load_uses_left}"
+    text = f"HP: {int(player.health)}  Ammo: {player.inventory['handgun_ammo']}  Rifle Ammo: {player.inventory['rifle_ammo']}  Keys: {player.inventory['keys']}  Level: {current_level}  Score: {int(score)}"
     glRasterPos2f(x, y)
     font = globals().get('GLUT_BITMAP_HELVETICA_18', None)
     if font is not None:
@@ -1654,6 +1654,7 @@ def animate():
         # health check / win conditions
         if player.health<=0:
             pause_game('lose')
+            return
         # Secondary win guard: if no bosses remain and we had one, declare win
         if current_level==3 and win_check_cooldown==0:
             if any(e.is_boss for e in enemies):
