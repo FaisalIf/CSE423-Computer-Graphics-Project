@@ -784,6 +784,10 @@ pickups = []
 walls = []    
 world_bounds = None  
 
+# Level 3 trap configuration
+TRAP_MSG = "Oops, it was a trap. Now brace yourself!"
+level3_trap_boss_spawned = False
+
 # gameplay
 paused = True
 menu_mode = 'title' 
@@ -878,6 +882,7 @@ def clear_level():
     exit_tiles.clear()
     lava_tiles.clear()
     golden_tiles.clear()
+    globals()['level3_trap_boss_spawned'] = False
 
 def setup_level(level):
     global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active, obstacles
@@ -1011,11 +1016,39 @@ def setup_level(level):
         for (cx, cy) in cp_positions:
             place_checkpoint_tile(cx, cy)
 
-        for lx in range(-600, 601, 200):
-            place_lava_tile(lx, 0)
-        for ly in range(-600, 601, 200):
-            if ly != 0:
-                place_lava_tile(0, ly)
+        # Two entire rows and two entire columns of lava across the arena grid
+        wb = globals().get('world_bounds')
+        if wb:
+            tile = 200
+            x_start = int(math.floor(wb['min_x']/tile))*tile
+            x_end   = int(math.ceil(wb['max_x']/tile))*tile
+            y_start = int(math.floor(wb['min_y']/tile))*tile
+            y_end   = int(math.ceil(wb['max_y']/tile))*tile
+            row_ys = [-400, 400]
+            col_xs = [-400, 400]
+            for y in row_ys:
+                if y < wb['min_y'] or y > wb['max_y']:
+                    continue
+                for x in range(x_start, x_end+1, tile):
+                    place_lava_tile(x, y)
+            for x in col_xs:
+                if x < wb['min_x'] or x > wb['max_x']:
+                    continue
+                for y in range(y_start, y_end+1, tile):
+                    place_lava_tile(x, y)
+
+            # GoldenTile trap row moved off-center so the player walks into it (y=800)
+            trap_y = 800
+            if trap_y >= wb['min_y'] and trap_y <= wb['max_y']:
+                for x in range(x_start, x_end+1, tile):
+                    place_golden_tile(x, trap_y, TRAP_MSG)
+
+            # Make the 9 tiles in the exact center a 3x3 lava cluster
+            center_coords = [-200, 0, 200]
+            for cx in center_coords:
+                for cy in center_coords:
+                    if cx >= wb['min_x'] and cx <= wb['max_x'] and cy >= wb['min_y'] and cy <= wb['max_y']:
+                        place_lava_tile(cx, cy)
 
         wb = globals().get('world_bounds')
         if wb:
@@ -1029,7 +1062,7 @@ def setup_level(level):
                 py = clamp2(boss_y + oy, wb['min_y']+100, wb['max_y']-100)
                 place_lava_tile(px, py)
         pad = 80
-        for _ in range(len(chests)):
+        for i in range(len(chests)):
             kx = random.randint(-field_size+pad, field_size-pad)
             ky = random.randint(-field_size+pad, field_size-pad)
             key_positions.append((kx, ky))
@@ -1421,7 +1454,7 @@ def draw_menu():
 # --------------------------- Update ---------------------------
 
 def animate():
-    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered, once, current_level
+    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered, once, current_level, level3_trap_boss_spawned
     if not paused:
         # movement animation and physics
         player.physics()
@@ -1525,6 +1558,19 @@ def animate():
                                 e.radius *= 0.6
                         enemies.append(turret)
 
+                # Level 3 golden row trap: spawn another boss and remove the golden row
+                if gt.message == TRAP_MSG and not level3_trap_boss_spawned and current_level == 3:
+                    # spawn a new boss at a different corner
+                    wb = globals().get('world_bounds')
+                    if wb:
+                        bx = wb['min_x'] + 150
+                        by = wb['max_y'] - 150
+                    else:
+                        bx = -400; by = 400
+                    enemies.append(Enemy(bx, by, GRID_Z, True))
+                    level3_trap_boss_spawned = True
+                    # remove all golden tiles in this row (identified by message)
+                    golden_tiles[:] = [t for t in golden_tiles if getattr(t, 'message', None) != TRAP_MSG]
 
         for ct in checkpoint_tiles:
             if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 100:
