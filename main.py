@@ -866,6 +866,10 @@ def clear_level():
     bullets.clear(); blue_portal.active=False; red_portal.active=False
     checkpoints.clear()
     globals()['world_bounds'] = None
+    checkpoint_tiles.clear()
+    exit_tiles.clear()
+    lava_tiles.clear()
+    golden_tiles.clear()
 
 def setup_level(level):
     global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active
