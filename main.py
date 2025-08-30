@@ -718,6 +718,10 @@ class Enemy(CompoundEntity):
             for b in self.projectiles:
                 glPushMatrix(); glTranslatef(b['x'], b['y'], b['z']); glScalef(5,5,5); gluSphere(Sphere.quadric,1,8,8); glPopMatrix()
 
+class FastEnemy(Enemy):
+    def __init__(self, x, y, ground_z):
+        super().__init__(x, y, ground_z, False)
+        self.speed *= 20
 # --------------------------- Weapons & Items -------------------
 
 class Bullet:
@@ -984,7 +988,8 @@ def setup_level(level):
         place_golden_tile(1500, -700, "Oh no! Road blocked!!! Use the portal gun!!!")
         place_golden_tile(1500, -1300, "Yay!!! Step onwards to proceed to level 2")
     elif level==2:
-        for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
+        for i in range(25):
+            enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
     else:
         # Level 3 field: half of previous (from 3200 to 1600)
         field_size = 1600
