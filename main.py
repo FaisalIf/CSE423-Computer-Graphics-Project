@@ -11,6 +11,8 @@ window_width, window_height = 1000, 800
 aspect_ratio = window_width/ window_height
 fovY_default = 77.3
 fovY_scoped  = 40.0
+yaw_step_values = [0.8, 0.25]
+yaw_step = yaw_step_values[0]
 
 #Camera modes
 cam_first  = 0
@@ -629,7 +631,11 @@ class Enemy(CompoundEntity):
                 b['x'] += b['vx']; b['y'] += b['vy']
                 b['life'] -= 1
             self.projectiles = [b for b in self.projectiles if b['life'] > 0]
-
+    def move(self, dx, dy):
+        self.x += dx; self.y += dy
+        for e in self.entities:
+            e.x += dx; e.y += dy; e.sync_bounding_box()
+        self.sync_bounding_box()
     def draw(self):
         # Scale model about its center for pulsing visuals
         glPushMatrix()
@@ -1417,8 +1423,9 @@ def animate():
                 score_add(3)
         # portals teleport
         if blue_portal.active and red_portal.active:
-            if math.hypot(player.x-blue_portal.x, player.y-blue_portal.y) < 25:
-                player.move(red_portal.x - player.x, red_portal.y - player.y)
+            for e in [player] + enemies:
+                if math.hypot(e.x-blue_portal.x, e.y-blue_portal.y) < 25:
+                    e.move(red_portal.x - e.x, red_portal.y - e.y)
         # checkpoints trigger
         for cx,cy in checkpoints:
             if math.hypot(player.x-cx, player.y-cy) < 20:
@@ -1550,7 +1557,7 @@ def special_keys(key, x, y):
 
 
 def clicks(button, state, x, y):
-    global scoped, pre_scope_camera_mode, fovY
+    global scoped, pre_scope_camera_mode, fovY, yaw_step, yaw_step_values
     if state != GLUT_DOWN and button != GLUT_RIGHT_BUTTON: return
     # map window x,y not used — just actions
     if button == GLUT_LEFT_BUTTON:
@@ -1563,10 +1570,13 @@ def clicks(button, state, x, y):
             pre_scope_camera_mode = camera_mode
             set_camera_mode(cam_first)
             set_fov(True)
+            yaw_step = yaw_step_values[1]
         else:
             scoped = False
             set_fov(False)
             set_camera_mode(pre_scope_camera_mode)
+            yaw_step = yaw_step_values[0]
+
     # wheel
     if button == 3:  # wheel up
         change_slot(-1)
@@ -1674,14 +1684,14 @@ def open_chest(c:Chest):
 # --------------------------- Movement Tick --------------------
 
 def update_movement():
-    global level1_msg_active, level1_checkpoint_msg_active, level1_all_enemies_msg_active
+    global level1_msg_active, level1_checkpoint_msg_active, level1_all_enemies_msg_active, yaw_step
     
     
     # WASD planar move
     dx=0; dy=0
     sp = player.speed
     # yaw update from A/D keys (rotate while held)
-    yaw_step = 0.8  # degrees per tick while held (even slower)
+    
     # Swap A/D rotation directions
     if moving['a']:
         player.yaw = (player.yaw + yaw_step) % 360
