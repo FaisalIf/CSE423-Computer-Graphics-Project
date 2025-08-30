@@ -74,6 +74,7 @@ trap_spawn_locations = [
     (-100, -900)
 ]
 
+once = 0
 #Utility functions
 
 #To keep stats within valid range
