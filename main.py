@@ -807,10 +807,7 @@ best_score = 0
 inventory_slots = {
     1: 'handgun',
     2: 'rifle',
-    3: 'portalgun', 
-    4: 'Nourishment',
-    5: 'Aegis',
-    6: 'Shard'
+    3: 'portalgun'
 }
 
 selected_slot = 1
@@ -1071,6 +1068,9 @@ def draw_inventory_bar():
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     slot_w = 85; slot_h = 50; x0 = 20; y0 = 20
     for i in range(1,10):
+        name = inventory_slots.get(i, '')
+        if not name:
+            continue
         x = x0 + (i-1)*(slot_w+1)
         y = y0
         if i==selected_slot:
@@ -1413,7 +1413,7 @@ def animate():
         on_lava = False
         for lt in lava_tiles:
             if lt.active and math.hypot(player.x - lt.x, player.y - lt.y) < 100:
-                player.health -= 0.005  # damage per frame on lava
+                player.health -= 0.05  # damage per frame on lava
                 on_lava = True
                 break
         if on_lava:
