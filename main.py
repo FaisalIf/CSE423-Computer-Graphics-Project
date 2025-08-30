@@ -1,4 +1,4 @@
-#Necessary imports for the game to run
+#Necessary imports for the game to rund
 
 from operator import gt
 from OpenGL.GL import *
@@ -211,6 +211,17 @@ class CheckpointTile(Entity):
 #To place the checkpoint tiles on individual levels
 def place_checkpoint_tile(x, y):
     checkpoint_tiles.append(CheckpointTile(x, y))
+
+def set_checkpoint(pos):
+    global last_checkpoint
+    last_checkpoint = pos
+
+def load_checkpoint():
+    global load_uses_left
+    if last_checkpoint and load_uses_left>0:
+        load_uses_left -= 1
+        place_player(last_checkpoint[0], last_checkpoint[1])
+
 
 # Class for the implementation of level exit tiles.
 class LevelExitTile(Entity):
@@ -427,7 +438,7 @@ class StickPlayer(CompoundEntity):
         self.jump_v = 0.0
         self.health = 100
         self.damage = 10
-        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':0,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
+        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':0,'Nourishment':1,'Aegis':0,'Shard':0,'portalgun':0}
         self.active_slot = 1
         self.head_visible = True
         self.yaw = 0
@@ -794,7 +805,10 @@ best_score = 0
 inventory_slots = {
     1: 'handgun',
     2: 'rifle',
-    3: 'portalgun'
+    3: 'portalgun',
+    4: 'nourishment',
+    5: 'aegis',
+    6: 'shard'
 }
 
 selected_slot = 1
@@ -889,7 +903,7 @@ def setup_level(level):
     # place player at origin
     place_player(0,0)
     player.inventory['portalgun'] = 1 if level>=1 else 0  # L1 finds it in a chest
-    player.inventory['keys'] = 1 if level==1 else 0
+    player.inventory['keys'] = 3 if level==1 else 0
     player.health = 100; player.damage = 10
     # checkpoints
     checkpoints.extend([(-200,-200), (0,0), (300,200)])
@@ -979,6 +993,12 @@ def setup_level(level):
         place_golden_tile(1300, 1500, "Yay!!!")
         place_golden_tile(1500, -700, "Oh no! Road blocked!!! Use the portal gun!!!")
         place_golden_tile(1500, -1300, "Yay!!! Step onwards to proceed to level 2")
+        a = Chest(100, -1500, GRID_Z)
+        a.contains = random.choice(['ammo', 'rifle_ammo'])
+        b = Chest(-1300, 1500, GRID_Z)
+        b.contains = random.choice(['ammo', 'rifle_ammo'])
+        chests.append(a)
+        chests.append(b)
     elif level==2:
         field_size = 1600
         build_level3_bounds(field_size)
@@ -1617,19 +1637,7 @@ def score_add(v):
     score += v
     best_score = max(best_score, score)
 
-# --------------------------- Checkpoints ----------------------
-
-def set_checkpoint(pos):
-    global last_checkpoint
-    last_checkpoint = pos
-
-def load_checkpoint():
-    global load_uses_left
-    if last_checkpoint and load_uses_left>0:
-        load_uses_left -= 1
-        place_player(last_checkpoint[0], last_checkpoint[1])
-
-# --------------------------- Input ----------------------------
+#Listeners
 
 moving = {'w':False,'a':False,'s':False,'d':False}
 
@@ -1750,8 +1758,6 @@ def clicks(button, state, x, y):
     if button == 4:  # wheel down
         change_slot(1)
 
-# --------------------------- Actions --------------------------
-
 def set_fov(scope):
     global fovY
     fovY = fovY_scoped if scope else fovY_default
@@ -1782,7 +1788,6 @@ def change_slot(delta):
 
 
 def do_primary_action():
-    # 1 = handgun, 2 = portalgun, 3.. consumables
     item = inventory_slots.get(selected_slot, '')
     if item=='handgun':
         shoot_handgun()
@@ -1793,9 +1798,8 @@ def do_primary_action():
     elif item=='Nourishment' and player.inventory['Nourishment']>0:
         player.inventory['Nourishment']-=1; apply_pickup('Nourishment')
     elif item=='Aegis' and player.inventory['Aegis']>0:
-        player.inventory['Aegis']-=1; # simple: temporary invuln not implemented: KISS
+        player.inventory['Aegis']-=1; 
     elif item=='Shard':
-        # passive already applied via pickups
         pass
 
 
@@ -1816,13 +1820,13 @@ def shoot_rifle():
     player.inventory['rifle_ammo'] -= 1
     head = player.head_entity()
     ang = math.radians(player.yaw)
-    vx = math.cos(ang) * 28  # Faster bullet
+    vx = math.cos(ang) * 28 
     vy = math.sin(ang) * 28
-    dmg = player.damage + 15  # More damage than handgun
+    dmg = player.damage + 15 
     max_dist = 1600
     bullets.append(Bullet(head.x + math.cos(ang) * 55, head.y + math.sin(ang) * 55, head.z - 15, vx, vy, dmg, max_dist))
 
-portal_toggle = True  # alternate blue/red
+portal_toggle = True 
 
 def place_portal():
     global portal_toggle
@@ -1837,7 +1841,6 @@ def place_portal():
         red_portal.place(px,py,pz)
     portal_toggle = not portal_toggle
 
-
 def open_chest(c:Chest):
     if c.closed:
         if player.inventory['keys']>0:
@@ -1848,7 +1851,7 @@ def open_chest(c:Chest):
                 pickups.append({'name':c.contains, 'x':c.x+random.randint(-10,10), 'y':c.y+random.randint(-10,10), 'z':GRID_Z+15, 'vz':5.0})
                 c.contains=None
 
-# --------------------------- Movement Tick --------------------
+#Movement
 
 def update_movement():
     global level1_msg_active, level1_checkpoint_msg_active, level1_all_enemies_msg_active, yaw_step
@@ -1880,7 +1883,7 @@ def update_movement():
             
         if current_level == 1 and level1_all_enemies_msg_active:
             level1_all_enemies_msg_active = False
-        # apply movement, but clamp within world bounds if defined
+
         new_x = player.x + dx
         new_y = player.y + dy
         player.walk_anim_tick()
@@ -1898,14 +1901,12 @@ def update_movement():
                 if player.check_collision(ob):
                     player.move(-dx,-dy)
 
-# --------------------------- Idle -----------------------------
+#On Idle
 
 def idle():
     if not paused:
         update_movement()
     animate()
-
-# --------------------------- Init / Main ----------------------
 
 def pause_game(mode='paused'):
     global paused, menu_mode
@@ -1947,11 +1948,6 @@ def main(level=None):
         pause_game('title')
 
     glutMainLoop()
-
-# --------------------------- Helpers for Tests ----------------
-# F1: Level 1 — easy/tutorial, harmless-ish enemies
-# F2: Level 2 — more enemies, keys hidden
-# F3: Level 3 — fast enemies + boss
 
 if __name__ == "__main__":
     main()
