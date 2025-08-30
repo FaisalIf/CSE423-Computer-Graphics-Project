@@ -205,9 +205,6 @@ class CheckpointTile(Entity):
         self.active = True
         self.saved = False
 
-    def draw(self):
-        pass
-
 #To place the checkpoint tiles on individual levels
 def place_checkpoint_tile(x, y):
     checkpoint_tiles.append(CheckpointTile(x, y))
@@ -217,9 +214,6 @@ class LevelExitTile(Entity):
     def __init__(self, x, y, z=GRID_Z):
         super().__init__(x, y, z, width=100, depth=100, height=8)
         self.active = True
-
-    def draw(self):
-        pass
 
 # To place the exit tiles on individual levels
 def place_exit_tile(x, y):
@@ -231,9 +225,6 @@ class LavaTile(Entity):
         super().__init__(x, y, z, width=100, depth=100, height=0)
         self.active = True
 
-    def draw(self):
-        pass
-
 def place_lava_tile(x, y):
     lava_tiles.append(LavaTile(x, y))
 
@@ -243,9 +234,6 @@ class GoldenTile(Entity):
         self.active = True
         self.message = message
         self.triggered = False
-
-    def draw(self):
-        pass
 
 def place_golden_tile(x, y, message):
     golden_tiles.append(GoldenTile(x, y, GRID_Z, message))
@@ -727,7 +715,7 @@ class FastEnemy(Enemy):
     def __init__(self, x, y, ground_z):
         super().__init__(x, y, ground_z, False)
         self.speed *= 20
-# --------------------------- Weapons & Items -------------------
+#Weaons and items
 
 class Bullet:
     def __init__(self, x, y, z, vx, vy, dmg, max_dist=800):
@@ -763,7 +751,7 @@ class Portal:
         gluCylinder(Sphere.quadric, 20, 20, 2, 24, 1)
         glPopMatrix()
 
-# --------------------------- Camera ----------------------------
+# Camera
 
 class Cam3rd:
     def __init__(self, ex, ey, ez, cx, cy, cz, ux=0, uy=0, uz=1):
@@ -778,7 +766,7 @@ class Cam3rd:
                 self.cen_x, self.cen_y, self.cen_z,
                 self.up_x,  self.up_y,  self.up_z)
 
-# --------------------------- Game State ------------------------
+#GAme state
 
 floor = Box('toothpaste', 0, 0, GRID_Z/2, 0,0,0, 1000, 1000, GRID_Z)
 player = StickPlayer(0, 0, GRID_Z, 0)
@@ -787,20 +775,18 @@ cam1 = Cam3rd(50, -200, 200, 0,0,0, 0,0,1)
 # enemies, chests, keys, pickups
 enemies = []
 chests = []
-key_positions = []  # simple pickups drawn as small boxes
-pickups = []  # items tossed from chests: {'name':str,'x','y','z','vz'}
-walls = []    # level boundary walls
-world_bounds = None  # {'min_x':..,'max_x':..,'min_y':..,'max_y':..}
+key_positions = [] 
+pickups = []  
+walls = []    
+world_bounds = None  
 
 # gameplay
 paused = True
-menu_mode = 'title'  # 'title' at start, 'paused' later, None when playing
+menu_mode = 'title' 
 score = 0
 start_time = None
 best_score = 0
 
-# inventory slots mapping (1..9)
-# 1: handgun, 2: portalgun, 3.. consumables
 inventory_slots = {
     1: 'handgun',
     2: 'rifle',
@@ -831,7 +817,7 @@ boss_spawned = False
 boss_seen_alive = False
 win_check_cooldown = 0
 
-# --------------------------- Utilities ------------------------
+
 
 def camera():
     global cam_eye, cam_cen
