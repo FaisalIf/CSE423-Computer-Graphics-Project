@@ -46,6 +46,8 @@ golden_tiles = []
 golden_tile_msg = ""
 golden_tile_msg_timer = 0
 
+obstacles = []
+
 #Messages for level 1 tutorials
 level1_start_msg = ""
 level1_msg_active = False
@@ -206,9 +208,6 @@ class CheckpointTile(Entity):
         self.active = True
         self.saved = False
 
-    def draw(self):
-        pass
-
 #To place the checkpoint tiles on individual levels
 def place_checkpoint_tile(x, y):
     checkpoint_tiles.append(CheckpointTile(x, y))
@@ -218,9 +217,6 @@ class LevelExitTile(Entity):
     def __init__(self, x, y, z=GRID_Z):
         super().__init__(x, y, z, width=100, depth=100, height=8)
         self.active = True
-
-    def draw(self):
-        pass
 
 # To place the exit tiles on individual levels
 def place_exit_tile(x, y):
@@ -232,9 +228,6 @@ class LavaTile(Entity):
         super().__init__(x, y, z, width=100, depth=100, height=0)
         self.active = True
 
-    def draw(self):
-        pass
-
 def place_lava_tile(x, y):
     lava_tiles.append(LavaTile(x, y))
 
@@ -244,9 +237,6 @@ class GoldenTile(Entity):
         self.active = True
         self.message = message
         self.triggered = False
-
-    def draw(self):
-        pass
 
 def place_golden_tile(x, y, message):
     golden_tiles.append(GoldenTile(x, y, GRID_Z, message))
@@ -398,7 +388,8 @@ class Chest(CompoundEntity):
         self.closed = True
         
     def toggle(self):
-        if self.closed: self.open()
+        if self.closed: 
+            self.open()
         else: self.close()
 
 player_style = "Regular"
@@ -436,7 +427,7 @@ class StickPlayer(CompoundEntity):
         self.jump_v = 0.0
         self.health = 100
         self.damage = 10
-        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
+        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':0,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
         self.active_slot = 1
         self.head_visible = True
         self.yaw = 0
@@ -727,7 +718,7 @@ class FastEnemy(Enemy):
     def __init__(self, x, y, ground_z):
         super().__init__(x, y, ground_z, False)
         self.speed *= 20
-# --------------------------- Weapons & Items -------------------
+#Weaons and items
 
 class Bullet:
     def __init__(self, x, y, z, vx, vy, dmg, max_dist=800):
@@ -764,7 +755,7 @@ class Portal:
         gluCylinder(Sphere.quadric, 20, 20, 2, 24, 1)
         glPopMatrix()
 
-# --------------------------- Camera ----------------------------
+# Camera
 
 class Cam3rd:
     def __init__(self, ex, ey, ez, cx, cy, cz, ux=0, uy=0, uz=1):
@@ -779,7 +770,7 @@ class Cam3rd:
                 self.cen_x, self.cen_y, self.cen_z,
                 self.up_x,  self.up_y,  self.up_z)
 
-# --------------------------- Game State ------------------------
+#GAme state
 
 floor = Box('toothpaste', 0, 0, GRID_Z/2, 0,0,0, 1000, 1000, GRID_Z)
 player = StickPlayer(0, 0, GRID_Z, 0)
@@ -788,27 +779,22 @@ cam1 = Cam3rd(50, -200, 200, 0,0,0, 0,0,1)
 # enemies, chests, keys, pickups
 enemies = []
 chests = []
-key_positions = []  # simple pickups drawn as small boxes
-pickups = []  # items tossed from chests: {'name':str,'x','y','z','vz'}
-walls = []    # level boundary walls
-world_bounds = None  # {'min_x':..,'max_x':..,'min_y':..,'max_y':..}
+key_positions = [] 
+pickups = []  
+walls = []    
+world_bounds = None  
 
 # gameplay
 paused = True
-menu_mode = 'title'  # 'title' at start, 'paused' later, None when playing
+menu_mode = 'title' 
 score = 0
 start_time = None
 best_score = 0
 
-# inventory slots mapping (1..9)
-# 1: handgun, 2: portalgun, 3.. consumables
 inventory_slots = {
     1: 'handgun',
     2: 'rifle',
-    3: 'portalgun', 
-    4: 'Nourishment',
-    5: 'Aegis',
-    6: 'Shard'
+    3: 'portalgun'
 }
 
 selected_slot = 1
@@ -835,7 +821,7 @@ boss_spawned = False
 boss_seen_alive = False
 win_check_cooldown = 0
 
-# --------------------------- Utilities ------------------------
+
 
 def camera():
     global cam_eye, cam_cen
@@ -884,7 +870,7 @@ def camera():
 # --------------------------- Level Setup ----------------------
 
 def clear_level():
-    enemies.clear(); chests.clear(); key_positions.clear(); pickups.clear(); walls.clear()
+    enemies.clear(); chests.clear(); key_positions.clear(); pickups.clear(); walls.clear(); obstacles.clear()
     bullets.clear(); blue_portal.active=False; red_portal.active=False
     checkpoints.clear()
     globals()['world_bounds'] = None
@@ -894,7 +880,7 @@ def clear_level():
     golden_tiles.clear()
 
 def setup_level(level):
-    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active
+    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active, obstacles
     current_level = level
     clear_level()
     boss_spawned = False
@@ -994,8 +980,12 @@ def setup_level(level):
         place_golden_tile(1500, -700, "Oh no! Road blocked!!! Use the portal gun!!!")
         place_golden_tile(1500, -1300, "Yay!!! Step onwards to proceed to level 2")
     elif level==2:
-        for i in range(25):
-            enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
+        field_size = 1600
+        build_level3_bounds(field_size)
+        #for i in range(25): enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
+            
+        obstacles.append(Box('toothpaste', 375, 0, GRID_Z+105, 0,0,0, 50, 3200, 200))
+        
     else:
         field_size = 1600
         for i in range(8):
@@ -1094,6 +1084,9 @@ def draw_inventory_bar():
     glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
     slot_w = 85; slot_h = 50; x0 = 20; y0 = 20
     for i in range(1,10):
+        name = inventory_slots.get(i, '')
+        if not name:
+            continue
         x = x0 + (i-1)*(slot_w+1)
         y = y0
         if i==selected_slot:
@@ -1326,6 +1319,14 @@ def display():
     blue_portal.draw(); red_portal.draw()
     # player model (hide head when in first-person)
     player.ensure_head_visibility(camera_mode==cam_third)
+    for ct in checkpoint_tiles:
+        ct.draw()
+    for et in exit_tiles:
+        et.draw()
+    for lt in lava_tiles:
+        lt.draw()
+    for ob in obstacles:
+        ob.draw()
     player.draw()
 
     # HUD
@@ -1380,12 +1381,6 @@ def display():
     # Menus
     if paused:
         draw_menu()
-    for ct in checkpoint_tiles:
-        ct.draw()
-    for et in exit_tiles:
-        et.draw()
-    for lt in lava_tiles:
-        lt.draw()
     
     glutSwapBuffers()
 
@@ -1417,6 +1412,7 @@ def draw_menu():
         draw_text(window_width/2-250, window_height-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
     elif menu_mode in ('win','lose'):
         draw_text(window_width/2-140, window_height-170, f'Total Score: {int(score)}')
+        clear_level()
     elif menu_mode == 'customization':
         global player_style
         draw_text(window_width/2-200, window_height-170, f'Press F5 to toggle player style. Current style: {player_style} ')
@@ -1433,7 +1429,7 @@ def animate():
         on_lava = False
         for lt in lava_tiles:
             if lt.active and math.hypot(player.x - lt.x, player.y - lt.y) < 100:
-                player.health -= 0.005  # damage per frame on lava
+                player.health -= 0.05  # damage per frame on lava
                 on_lava = True
                 break
         if on_lava:
@@ -1639,7 +1635,7 @@ moving = {'w':False,'a':False,'s':False,'d':False}
 
 
 def keys(key, x, y):
-    global paused, menu_mode, camera_mode, scoped, fovY, selected_slot, pre_topdown_camera_mode
+    global paused, menu_mode, camera_mode, scoped, fovY, selected_slot, pre_topdown_camera_mode, player
     k = key
     if k==b'\x1b':  # ESC
         if paused:
@@ -1684,7 +1680,10 @@ def keys(key, x, y):
         if chests:
             nearest = min(chests, key=lambda c: math.hypot(c.x-player.x,c.y-player.y))
             if math.hypot(nearest.x-player.x, nearest.y-player.y) < 80:
-                nearest.toggle()
+                if nearest.contains:
+                    open_chest(nearest)
+                else:
+                    nearest.toggle()
     # inventory hotkeys 1..9
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
@@ -1895,6 +1894,9 @@ def update_movement():
             dy = new_y - player.y
         if dx or dy:
             player.move(dx,dy)
+            for ob in obstacles:
+                if player.check_collision(ob):
+                    player.move(-dx,-dy)
 
 # --------------------------- Idle -----------------------------
 
