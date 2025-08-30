@@ -413,15 +413,15 @@ class StickPlayer(CompoundEntity):
         head_center_z = shoulder_z + self.head_r + 4.0
 
         # Build components for bounds/collisions
-        leg_left = Cylinder('grey', x - 7, y, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
-        leg_right = Cylinder('grey', x + 7, y, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
+        leg_left = Cylinder('grey', x, y - 7, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
+        leg_right = Cylinder('grey', x, y + 7, hip_z, 0, 0, 0, radius=self.leg_r, height=self.leg_h, anchor='top')
         # Body rises upward from hip level
         body = Cylinder('orange', x, y, hip_z, 0, 0, 0, radius=self.body_r, height=self.body_h, anchor='base')
         # Arms hang down from the shoulder line
-        arm_left = Cylinder('light_blue', x - self.shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
-        arm_right = Cylinder('light_blue', x + self.shoulder_span/2, y, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
+        arm_left = Cylinder('light_blue', x, y - self.shoulder_span/2, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
+        arm_right = Cylinder('light_blue', x, y + self.shoulder_span/2, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
         head = Sphere('light_brown', x, y, head_center_z, 0, 0, 0, self.head_r)
-        super().__init__(leg_left, leg_right, body, arm_left, arm_right, head)
+        super().__init__(leg_left, leg_right, arm_left, body, arm_right, head)
 
         self.on_ground_z = ground_z
         self.anim = 0.0
@@ -478,6 +478,9 @@ class StickPlayer(CompoundEntity):
         self.sync_bounding_box()
 
     def draw(self):
+        for i, e in enumerate(self.entities):
+            if i==5 and not self.head_visible: continue
+            e.draw()
         hip_z = self.on_ground_z + self.leg_h
         shoulder_z = hip_z + self.body_h
         head_center_z = shoulder_z + self.head_r + 4.0
@@ -488,17 +491,30 @@ class StickPlayer(CompoundEntity):
 
         # Legs
         glColor3f(*get_color('grey'))
-        glPushMatrix(); glTranslatef(-7, 0, hip_z - self.leg_h); gluCylinder(Sphere.quadric, self.leg_r, self.leg_r, self.leg_h, 16, 1); glPopMatrix()
-        glPushMatrix(); glTranslatef( 7, 0, hip_z - self.leg_h); gluCylinder(Sphere.quadric, self.leg_r, self.leg_r, self.leg_h, 16, 1); glPopMatrix()
+        glPushMatrix()
+        glTranslatef(-7, 0, hip_z - self.leg_h)
+        # gluCylinder(Sphere.quadric, self.leg_r, self.leg_r, self.leg_h, 16, 1)
+        glPopMatrix()
+        glPushMatrix()
+        glTranslatef( 7, 0, hip_z - self.leg_h)
+        # gluCylinder(Sphere.quadric, self.leg_r, self.leg_r, self.leg_h, 16, 1)
+        glPopMatrix()
 
         # Body
         glColor3f(*get_color('orange'))
-        glPushMatrix(); glTranslatef(0, 0, hip_z); gluCylinder(Sphere.quadric, self.body_r, self.body_r, self.body_h, 16, 1); glPopMatrix()
+        glPushMatrix(); glTranslatef(0, 0, hip_z)
+        # gluCylinder(Sphere.quadric, self.body_r, self.body_r, self.body_h, 16, 1)
+        glPopMatrix()
 
         # Arms and simple stick weapon on right hand
-        glColor3f(*get_color('light_blue'))
-        glPushMatrix(); glTranslatef(-self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1); glPopMatrix()
-        glPushMatrix(); glTranslatef( self.shoulder_span/2, 0, shoulder_z - self.arm_h); gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
+        # glColor3f(*get_color('light_blue'))
+        glPushMatrix()
+        glTranslatef(-self.shoulder_span/2, 0, shoulder_z - self.arm_h)
+        # gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
+        glPopMatrix()
+        glPushMatrix()
+        glTranslatef( self.shoulder_span/2, 0, shoulder_z - self.arm_h)
+        #gluCylinder(Sphere.quadric, self.arm_r, self.arm_r, self.arm_h, 16, 1)
         
         # weapon
         if selected_slot == 2: 
@@ -1338,7 +1354,6 @@ def animate():
     global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered, once, current_level
     if not paused:
         # movement animation and physics
-        player.walk_anim_tick()
         player.physics()
 
         on_lava = False
@@ -1760,8 +1775,10 @@ def update_movement():
     # Swap A/D rotation directions
     if moving['a']:
         player.yaw = (player.yaw + yaw_step) % 360
+        player.rotate_z(yaw_step)
     if moving['d']:
         player.yaw = (player.yaw - yaw_step) % 360
+        player.rotate_z(-yaw_step)
     # convert WASD relative to yaw
     dir_forward = math.radians(player.yaw)
     fx, fy = math.cos(dir_forward), math.sin(dir_forward)
@@ -1779,6 +1796,7 @@ def update_movement():
         # apply movement, but clamp within world bounds if defined
         new_x = player.x + dx
         new_y = player.y + dy
+        player.walk_anim_tick()
         wb = globals().get('world_bounds')
         if wb is not None:
             # keep a small inner padding to avoid intersecting wall geometry
