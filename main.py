@@ -4,7 +4,6 @@ from operator import gt
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
-from OpenGL import GLUT as GLUTmod
 import math, random, time
 
 #Variables for window and camera
@@ -116,7 +115,7 @@ def get_color(name):
     return preset_colors.get(name, (1.0, 1.0, 1.0))
 
 #Draw text on the screen
-def draw_text(x, y, text, color = (1, 1, 1), font=GLUT_BITMAP_HELVETICA_18):
+def draw_text(x, y, text, color = (1, 1, 1), font=None):
     glColor3f(*color)
     glMatrixMode(GL_PROJECTION)
     glPushMatrix()
@@ -130,10 +129,14 @@ def draw_text(x, y, text, color = (1, 1, 1), font=GLUT_BITMAP_HELVETICA_18):
     glPushMatrix()
     glLoadIdentity()
     
+    # Pick a bitmap font safely (avoid NameError during import time)
+    if font is None:
+        font = globals().get('GLUT_BITMAP_HELVETICA_18', None) or globals().get('GLUT_BITMAP_9_BY_15', None)
     # Draw text at (x, y) in screen coordinates
     glRasterPos2f(x, y)
-    for ch in text:
-        glutBitmapCharacter(font, ord(ch))
+    if font is not None:
+        for ch in text:
+            glutBitmapCharacter(font, ord(ch))
     
     # Restore original projection and modelview matrices
     glPopMatrix()
@@ -632,7 +635,7 @@ class Enemy(CompoundEntity):
         self.is_boss = is_boss
         self.base_color = get_color(body_col)
         self.pulse = 0.0
-        self.speed = 0.1 if not is_boss else 0
+        self.speed = 0.5 if not is_boss else 0.8
         self.hp = 20 if not is_boss else 120
         self.projectiles = []  # boss only
         # give the boss an initial cooldown so it doesn't start firing instantly
@@ -750,7 +753,8 @@ class Portal:
     def place(self, x,y,z):
         self.active=True; self.x=x; self.y=y; self.z=z
     def draw(self):
-        if not self.active: return
+        if not self.active:
+            return
         glColor3f(*self.color)
         glPushMatrix()
         glTranslatef(self.x, self.y, self.z)
@@ -993,18 +997,47 @@ def setup_level(level):
         for i in range(25):
             enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
     else:
-        # Level 3 field: half of previous (from 3200 to 1600)
         field_size = 1600
-        for i in range(10): enemies.append(Enemy(random.randint(-field_size,field_size), random.randint(-field_size,field_size), GRID_Z, False))
+        for i in range(8):
+            enemies.append(Enemy(random.randint(-field_size,field_size), random.randint(-field_size,field_size), GRID_Z, False))
         # Place boss near a corner
         enemies.append(Enemy(field_size-100, field_size-100, GRID_Z, True))
         # Fallback: ensure there's at least one boss; if not, spawn one near origin
         if not any(e.is_boss for e in enemies):
             enemies.append(Enemy(180,0, GRID_Z, True))
+        for e in enemies:
+            if getattr(e, 'is_boss', False):
+                e.speed = 0.8
         boss_spawned = any(e.is_boss for e in enemies)
-        # Build boundary walls and grass floor for the whole field
         build_level3_bounds(field_size)
-        # Ensure equal number of keys as chests within the field
+
+        pad_cp = 200
+        cp_positions = [
+            (-field_size+pad_cp, -field_size+pad_cp),
+            ( field_size-pad_cp, -field_size+pad_cp),
+            (-field_size+pad_cp,  field_size-pad_cp),
+            ( field_size-pad_cp,  field_size-pad_cp),
+        ]
+        for (cx, cy) in cp_positions:
+            place_checkpoint_tile(cx, cy)
+
+        for lx in range(-600, 601, 200):
+            place_lava_tile(lx, 0)
+        for ly in range(-600, 601, 200):
+            if ly != 0:
+                place_lava_tile(0, ly)
+
+        wb = globals().get('world_bounds')
+        if wb:
+            def clamp2(v, lo, hi):
+                return max(lo, min(hi, v))
+            boss_x = field_size - 100
+            boss_y = field_size - 100
+            around = [(-200, 0), (0, -200), (-200, -200), (-100, -100)]
+            for ox, oy in around:
+                px = clamp2(boss_x + ox, wb['min_x']+100, wb['max_x']-100)
+                py = clamp2(boss_y + oy, wb['min_y']+100, wb['max_y']-100)
+                place_lava_tile(px, py)
         pad = 80
         for _ in range(len(chests)):
             kx = random.randint(-field_size+pad, field_size-pad)
