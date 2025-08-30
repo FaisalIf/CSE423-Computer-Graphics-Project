@@ -1,4 +1,4 @@
-#Necessary imports for the game to rund
+#Necessary imports for the game to run
 
 from operator import gt
 from OpenGL.GL import *
