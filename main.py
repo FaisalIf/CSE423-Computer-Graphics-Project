@@ -70,6 +70,8 @@ def clamp(v, lo, hi):
 
 #Preset of colors to use later
 preset_colors = {
+    'hero_blue': (0.01, 0.31, 0.76),
+    'hero_red': (1.00, 0.15, 0.15),
     'grey': (0.6, 0.6, 0.6),
     'dark_grey': (0.15, 0.15, 0.15),
     'orange': (1.0, 0.55, 0.0),
@@ -91,7 +93,9 @@ preset_colors = {
     'white': (1.0, 1.0, 1.0),
     'chest_dark': (0.0588, 0.0549, 0.0549),
     'chest_maroon': (0.3294, 0.0706, 0.0706),
-    'bright_green': (0.2, 0.8, 0.2)
+    'bright_green': (0.2, 0.8, 0.2),
+    'hulk_green': (0.04, 0.34, 0.03),
+    'hulk_purple': (0.25, 0.03, 0.34)
 }
 
 #Get color, if not found, return white as default
@@ -384,7 +388,7 @@ class Chest(CompoundEntity):
 player_style = "Regular"
 class StickPlayer(CompoundEntity):
     def __init__(self, x, y, ground_z, rz):
-        self.styles = ['Regular',  'Hero']
+        self.styles = ['Regular',  'Hero', 'Hulk']
         self.style = 0
         self.leg_h = 40.0
         self.body_h = 40.0
@@ -394,7 +398,6 @@ class StickPlayer(CompoundEntity):
         self.leg_r = 7.0
         self.body_r = 20.0
         self.shoulder_span = 46.0
-
         hip_z = ground_z + self.leg_h
         shoulder_z = hip_z + self.body_h
         head_center_z = shoulder_z + self.head_r + 4.0
@@ -407,7 +410,7 @@ class StickPlayer(CompoundEntity):
         # Arms hang down from the shoulder line
         arm_left = Cylinder('light_blue', x, y - self.shoulder_span/2, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
         arm_right = Cylinder('light_blue', x, y + self.shoulder_span/2, shoulder_z, 0, 0, 0, radius=self.arm_r, height=self.arm_h, anchor='top')
-        head = Sphere('light_brown', x, y, head_center_z, 0, 0, 0, self.head_r)
+        head = Sphere('black', x, y, head_center_z, 0, 0, 0, self.head_r)
         super().__init__(leg_left, leg_right, arm_left, body, arm_right, head)
 
         self.on_ground_z = ground_z
@@ -465,9 +468,6 @@ class StickPlayer(CompoundEntity):
         self.sync_bounding_box()
 
     def draw(self):
-        for i, e in enumerate(self.entities):
-            if i==5 and not self.head_visible: continue
-            e.draw()
         hip_z = self.on_ground_z + self.leg_h
         shoulder_z = hip_z + self.body_h
         head_center_z = shoulder_z + self.head_r + 4.0
@@ -489,7 +489,8 @@ class StickPlayer(CompoundEntity):
 
         # Body
         glColor3f(*get_color('orange'))
-        glPushMatrix(); glTranslatef(0, 0, hip_z)
+        glPushMatrix()
+        glTranslatef(0, 0, hip_z)
         # gluCylinder(Sphere.quadric, self.body_r, self.body_r, self.body_h, 16, 1)
         glPopMatrix()
 
@@ -523,18 +524,46 @@ class StickPlayer(CompoundEntity):
         # Head
         if self.head_visible:
             glColor3f(*get_color('light_brown'))
-            glPushMatrix(); glTranslatef(0, 0, head_center_z); gluSphere(Sphere.quadric, self.head_r, 10, 10); glPopMatrix()
+            glPushMatrix()
+            glTranslatef(0, 0, head_center_z)
+            # gluSphere(Sphere.quadric, self.head_r, 10, 10)
+            glPopMatrix()
         glPopMatrix()
+        for i, e in enumerate(self.entities):
+            if i==5 and not self.head_visible: continue
+            e.draw()
     def change_style(self):
         global player_style
         self.style += 1
         self.style %= len(self.styles)
         style = self.styles[self.style]
         body = self.entities[-3]
+        leg1 = self.entities[0]
+        leg2 = self.entities[1]
+        arm1 = self.entities[2]
+        arm2 = self.entities[4]
+
         if style == 'Regular':
             body.radius = 20
+            body.color = get_color('orange')
+            leg1.color = get_color('grey')
+            leg2.color = get_color('grey')
+            arm1.color = get_color('light_blue')
+            arm2.color = get_color('light_blue')
         elif style == 'Hero':
             body.radius = 10
+            body.color = get_color('hero_red')
+            leg1.color = get_color('hero_blue')
+            leg2.color = get_color('hero_blue')
+            arm1.color = get_color('light_blue')
+            arm2.color = get_color('light_blue')
+        elif style == 'Hulk':
+            body.radius = 10
+            body.color = get_color('hulk_green')
+            leg1.color = get_color('hulk_purple')
+            leg2.color = get_color('hulk_purple')
+            arm1.color = get_color('hulk_green')
+            arm2.color = get_color('hulk_green')
         player_style = style
 
 class Enemy(CompoundEntity):
