@@ -1004,9 +1004,6 @@ def draw_crosshair(scoped_mode):
         # screen-wide cross shaped crosshair
         glVertex2f(cx-200, cy); glVertex2f(cx+200, cy)
         glVertex2f(cx, cy-200); glVertex2f(cx, cy+200)
-    else:
-        glVertex2f(cx-15, cy); glVertex2f(cx+15, cy)
-        glVertex2f(cx, cy-15); glVertex2f(cx, cy+15)
     glEnd()
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
@@ -1514,7 +1511,7 @@ def keys(key, x, y):
         if chests:
             nearest = min(chests, key=lambda c: math.hypot(c.x-player.x,c.y-player.y))
             if math.hypot(nearest.x-player.x, nearest.y-player.y) < 80:
-                open_chest(nearest)
+                nearest.toggle()
     # inventory hotkeys 1..9
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
@@ -1554,14 +1551,14 @@ def special_keys(key, x, y):
 
 def clicks(button, state, x, y):
     global scoped, pre_scope_camera_mode, fovY
-    if state != GLUT_DOWN: return
+    if state != GLUT_DOWN and button != GLUT_RIGHT_BUTTON: return
     # map window x,y not used — just actions
     if button == GLUT_LEFT_BUTTON:
         # left click: shoot / place portal / use consumable depending on slot
         do_primary_action()
     if button == GLUT_RIGHT_BUTTON:
         # right click: scope
-        if not scoped:
+        if state == GLUT_DOWN:
             scoped = True
             pre_scope_camera_mode = camera_mode
             set_camera_mode(cam_first)
