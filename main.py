@@ -1,5 +1,6 @@
 #Necessary imports for the game to run
 
+from operator import gt
 from OpenGL.GL import *
 from OpenGL.GLU import *
 from OpenGL.GLUT import *
@@ -60,7 +61,18 @@ level1_all_enemies_msg_active = False
 level1_enemies_spawned = False  # Track if the 5 enemies have been spawned
 
 trap_triggered = False
-trap_spawn_locations = [(-1200, 400), (-800, 800), (-400, 1200), (0, 800), (400, 400)]
+trap_spawn_locations = [
+    (-100, 900),
+    (-100, 700),
+    (-100, 500),
+    (-100, 300),
+    (-100, 100),
+    (-100, -100),
+    (-100, -300),
+    (-100, -500),
+    (-100, -700),
+    (-100, -900)
+]
 
 #Utility functions
 
@@ -949,21 +961,28 @@ def setup_level(level):
         place_lava_tile(100, -1100)
         place_lava_tile(100, -1300)
 
-        place_golden_tile(-500, 0, "Uh oh!!! A trap")
-
-        # positions = [(-1200, 400), (-800, 800), (-400, 1200), (0, 800), (400, 400)]
-        # for pos in positions:
-        #     turret = Enemy(pos[0], pos[1], GRID_Z, True)
-        #     turret.hp = 40         # Weaker health
-        #     turret.speed = 0       # Stationary turret
-        #     turret.shoot_cool = 500  # Shoots more slowly
-        #     # Optionally, scale down the boss size
-        #     for e in turret.entities:
-        #         if hasattr(e, 'height'):
-        #             e.height *= 0.6
-        #         if hasattr(e, 'radius'):
-        #             e.radius *= 0.6
-        #     enemies.append(turret)
+        place_lava_tile(1300, -1500)
+        place_lava_tile(1300, -1300)
+        place_lava_tile(1300, -1100)
+        place_lava_tile(1300, -900)
+        place_lava_tile(1300, -700)
+        place_lava_tile(1300, -500)
+        place_lava_tile(1300, -300)
+        place_lava_tile(1300, -100)
+        place_lava_tile(1300, 100)
+        place_lava_tile(1300, 300)
+        place_lava_tile(1300, 500)
+        place_lava_tile(1300, 700)
+        place_lava_tile(1300, 900)
+        place_lava_tile(1300, 1100)
+        place_lava_tile(1300, 1300)
+        place_exit_tile(1500, -1500)
+        red_portal.place(1500, -1300, 20)
+        place_golden_tile(-1300, 1500, "Uh oh!!! A trap. Use the Rifle for longer range.")
+        place_golden_tile(100, -1500, "Muahaha!!! Even bigger trap!")
+        place_golden_tile(1300, 1500, "Yay!!!")
+        place_golden_tile(1500, -700, "Oh no! Road blocked!!! Use the portal gun!!!")
+        place_golden_tile(1500, -1300, "Yay!!! Step onwards to proceed to level 2")
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -1235,6 +1254,14 @@ def draw_floor():
         glVertex3f(gt.x+100, gt.y+100, GRID_Z+0.2)
         glVertex3f(gt.x-100, gt.y+100, GRID_Z+0.2)
         glEnd()
+    
+    if current_level == 1:
+        glColor3f(0.2, 0.8, 0.2)
+        glPushMatrix()
+        glTranslatef(1500, -1100, GRID_Z + 50)  # center column on tile
+        glScalef(200, 200, 200)  # width, depth, height of column
+        glutSolidCube(1)
+        glPopMatrix()
     # draw level-3 walls if present
     for w in walls:
         w.draw()
@@ -1358,7 +1385,7 @@ def draw_menu():
 # --------------------------- Update ---------------------------
 
 def animate():
-    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered
+    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered, once, current_level
     if not paused:
         # movement animation and physics
         player.physics()
@@ -1387,10 +1414,11 @@ def animate():
             # enemy collision / damage
             if e.check_collision(player):
                 if e.is_boss:
-                    player.health -= 25
-                    # knockback
-                    dx = player.x - e.x; dy=player.y - e.y; d=math.hypot(dx,dy)+1e-6
-                    player.move(30*dx/d, 30*dy/d)
+                    if current_level == 3:
+                        score_add(500)
+                        pause_game('win')
+                    elif current_level == 1:
+                        score_add(200)
                 else:
                     player.health -= 10
                     enemies.remove(e)
@@ -1435,10 +1463,26 @@ def animate():
                 golden_tile_msg_timer = 120  # show for 2 seconds
                 gt.triggered = True
                 # Trap logic: spawn enemies if this is the trap tile
-                if gt.message == "Uh oh!!! A trap" and not trap_triggered:
-                    trap_triggered = True
+                if gt.message == "Uh oh!!! A trap. Use the Rifle for longer range." and not trap_triggered:
                     for pos in trap_spawn_locations:
                         enemies.append(Enemy(pos[0], pos[1], GRID_Z, False))
+
+                if gt.message == "Muahaha!!! Even bigger trap!" and not trap_triggered:
+                    trap_triggered = True
+                    positions = [(1100, 900), (1100, 100), (1100, -700)]
+                    for pos in positions:
+                        turret = Enemy(pos[0], pos[1], GRID_Z, True, 1)
+                        turret.hp = 20         # Weaker health
+                        turret.speed = 0       # Stationary turret
+                        turret.shoot_cool = 800  # Shoots more slowly
+                        # Optionally, scale down the boss size
+                        for e in turret.entities:
+                            if hasattr(e, 'height'):
+                                e.height *= 0.6
+                            if hasattr(e, 'radius'):
+                                e.radius *= 0.6
+                        enemies.append(turret)
+
 
         for ct in checkpoint_tiles:
             if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 100:
@@ -1513,9 +1557,10 @@ def animate():
             pass
         if current_level == 1 and level1_enemies_spawned:
             # Only show message if all spawned enemies are dead and message not yet shown
-            if level1_all_enemies_msg_active is False and level1_enemies_spawned and all(not e.is_boss for e in enemies) and len(enemies) == 0:
+            if level1_all_enemies_msg_active is False and level1_enemies_spawned and all(not e.is_boss for e in enemies) and len(enemies) == 0 and once == 0:
                 level1_all_enemies_msg = "Great job!!! Move to the next golden tile!"
                 level1_all_enemies_msg_active = True
+                once = 1
     glutPostRedisplay()
 
 # --------------------------- Score ----------------------------
