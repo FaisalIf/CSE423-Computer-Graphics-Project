@@ -385,9 +385,6 @@ class Chest(CompoundEntity):
         ins_1.color = get_color('gold')
         ins_2.color = get_color('chest_dark')
         self.closed = False
-        give = self.contains
-        self.contains = None
-        return give
         
     def close(self):
         ins_1 = self.entities[1]
@@ -401,7 +398,7 @@ class Chest(CompoundEntity):
         
     def toggle(self):
         if self.closed: 
-            return self.open()
+            self.open()
         else: self.close()
 
 player_style = "Regular"
@@ -439,7 +436,7 @@ class StickPlayer(CompoundEntity):
         self.jump_v = 0.0
         self.health = 100
         self.damage = 10
-        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':1,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
+        self.inventory = {'handgun_ammo':24, 'rifle_ammo': 30, 'keys':0,'Nourishment':0,'Aegis':0,'Shard':0,'portalgun':0}
         self.active_slot = 1
         self.head_visible = True
         self.yaw = 0
@@ -1664,8 +1661,10 @@ def keys(key, x, y):
         if chests:
             nearest = min(chests, key=lambda c: math.hypot(c.x-player.x,c.y-player.y))
             if math.hypot(nearest.x-player.x, nearest.y-player.y) < 80:
-                got = nearest.toggle()
-                if got: apply_pickup(got)
+                if nearest.contains:
+                    open_chest(nearest)
+                else:
+                    nearest.toggle()
     # inventory hotkeys 1..9
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
