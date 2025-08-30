@@ -394,8 +394,11 @@ class Chest(CompoundEntity):
         if self.closed: self.open()
         else: self.close()
 
+player_style = "Fat"
 class StickPlayer(CompoundEntity):
     def __init__(self, x, y, ground_z, rz):
+        self.styles = ['Fat',  'Thin']
+        self.style = 0
         self.leg_h = 40.0
         self.body_h = 40.0
         self.head_r = 12.0
@@ -518,8 +521,17 @@ class StickPlayer(CompoundEntity):
         if self.head_visible:
             glColor3f(*get_color('light_brown'))
             glPushMatrix(); glTranslatef(0, 0, head_center_z); gluSphere(Sphere.quadric, self.head_r, 10, 10); glPopMatrix()
-
         glPopMatrix()
+    def change_style(self):
+        global player_style
+        self.style += 1
+        self.style %= len(self.styles)
+        style = self.styles[self.style]
+        if style == 'Fat':
+            self.body_r = 20
+        elif style == 'Thin':
+            self.body_r = 10
+        player_style = style
 
 class Enemy(CompoundEntity):
     def __init__(self, x, y, ground_z, is_boss=False, speed = 3.5):
@@ -1114,6 +1126,7 @@ def draw_hud_stats():
         draw_text(window_width//2 - 180, window_height//2 + 140, golden_tile_msg)
         glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
+
 # --------------------------- Drawing --------------------------
 
 def draw_floor():
@@ -1289,13 +1302,15 @@ def display():
 # --------------------------- Menus ----------------------------
 
 def draw_menu():
-    # menu_mode: 'title', 'paused', 'win', 'lose'
+    # menu_mode: 'title', 'paused', 'win', 'lose', customization
     if menu_mode == 'win':
         title = 'You Win'
     elif menu_mode == 'lose':
         title = 'You Lost'
     elif menu_mode == 'paused':
         title = 'Paused'
+    elif menu_mode == 'customization':
+        title = 'Player Customization'
     else:
         title = 'Demons & Portals'
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
@@ -1312,6 +1327,9 @@ def draw_menu():
         draw_text(window_width/2-250, window_height-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
     elif menu_mode in ('win','lose'):
         draw_text(window_width/2-140, window_height-170, f'Total Score: {int(score)}')
+    elif menu_mode == 'customization':
+        global player_style
+        draw_text(window_width/2-200, window_height-170, f'Press F5 to toggle player style. Current style: {player_style} ')
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 # --------------------------- Update ---------------------------
@@ -1529,7 +1547,13 @@ def keys(key, x, y):
         else:
             pause_game('paused')
         return
-
+    if k==b'o':
+        if paused:
+            paused=False; menu_mode=None
+        else:
+            pause_game('paused')
+            menu_mode='customization'
+        return
     if paused:
         if k in (b'n', b'N') and menu_mode=='title':
             paused=False; menu_mode=None
@@ -1582,7 +1606,7 @@ def key_up(key, x, y):
 
 def special_keys(key, x, y):
     # arrow keys adjust third-person camera in the X/Y plane (Z locked)
-    global third_cam_back, third_cam_side
+    global third_cam_back, third_cam_side, player, menu_mode
     if camera_mode == cam_third:
         if key == GLUT_KEY_LEFT:
             third_cam_side -= 5
@@ -1597,6 +1621,8 @@ def special_keys(key, x, y):
     if key == GLUT_KEY_F2: setup_level(2)
     if key == GLUT_KEY_F3: setup_level(3)
 
+    # style change
+    if menu_mode == 'customization' and key == GLUT_KEY_F5: player.change_style()
 
 def clicks(button, state, x, y):
     global scoped, pre_scope_camera_mode, fovY
