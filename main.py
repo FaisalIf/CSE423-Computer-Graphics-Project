@@ -11,8 +11,6 @@ window_width, window_height = 1000, 800
 aspect_ratio = window_width/ window_height
 fovY_default = 77.3
 fovY_scoped  = 40.0
-yaw_step_values = [0.8, 0.25]
-yaw_step = yaw_step_values[0]
 
 #Camera modes
 cam_first  = 0
@@ -60,7 +58,19 @@ level1_all_enemies_msg_active = False
 level1_enemies_spawned = False  # Track if the 5 enemies have been spawned
 
 trap_triggered = False
-trap_spawn_locations = [(-1200, 400), (-800, 800), (-400, 1200), (0, 800), (400, 400)]
+trap_spawn_locations = [
+    (-100, 900),
+    (-100, 700),
+    (-100, 500),
+    (-100, 300),
+    (-100, 100),
+    (-100, -100),
+    (-100, -300),
+    (-100, -500),
+    (-100, -700),
+    (-100, -900)
+]
+once = 0
 
 #Utility functions
 
@@ -512,7 +522,7 @@ class StickPlayer(CompoundEntity):
         glPopMatrix()
 
 class Enemy(CompoundEntity):
-    def __init__(self, x, y, ground_z, is_boss=False):
+    def __init__(self, x, y, ground_z, is_boss=False, speed = 3.5):
         # Boss gets a scarier, bigger model with grey head and black body
         if is_boss:
             body_col, head_col = 'black', 'grey'
@@ -520,6 +530,7 @@ class Enemy(CompoundEntity):
             body_h = 100.0
             body_r = 48.0
             head_r = 48.0
+            self.b_speed = speed
             # Scarier: add spikes (vertical cylinders) around head
             spike_r = 2.5
             spike_h = 30.0
@@ -623,19 +634,15 @@ class Enemy(CompoundEntity):
             if self.shoot_cool <= 0:
                 # further reduce fire rate with a larger cooldown
                 self.shoot_cool = 220
-                bvx = 3.5 * (dx / d)
-                bvy = 3.5 * (dy / d)
+                bvx = self.b_speed * (dx / d)
+                bvy = self.b_speed * (dy / d)
                 # much bigger range
                 self.projectiles.append({'x': self.x, 'y': self.y, 'z': self.z + 20, 'vx': bvx, 'vy': bvy, 'life': 2000})
             for b in self.projectiles:
                 b['x'] += b['vx']; b['y'] += b['vy']
                 b['life'] -= 1
             self.projectiles = [b for b in self.projectiles if b['life'] > 0]
-    def move(self, dx, dy):
-        self.x += dx; self.y += dy
-        for e in self.entities:
-            e.x += dx; e.y += dy; e.sync_bounding_box()
-        self.sync_bounding_box()
+
     def draw(self):
         # Scale model about its center for pulsing visuals
         glPushMatrix()
@@ -889,22 +896,29 @@ def setup_level(level):
         place_lava_tile(100, -900)
         place_lava_tile(100, -1100)
         place_lava_tile(100, -1300)
+        place_lava_tile(1300, -1500)
+        place_lava_tile(1300, -1300)
+        place_lava_tile(1300, -1100)
+        place_lava_tile(1300, -900)
+        place_lava_tile(1300, -700)
+        place_lava_tile(1300, -500)
+        place_lava_tile(1300, -300)
+        place_lava_tile(1300, -100)
+        place_lava_tile(1300, 100)
+        place_lava_tile(1300, 300)
+        place_lava_tile(1300, 500)
+        place_lava_tile(1300, 700)
+        place_lava_tile(1300, 900)
+        place_lava_tile(1300, 1100)
+        place_lava_tile(1300, 1300)
+        place_exit_tile(1500, -1500)
+        red_portal.place(1500, -1300, 20)
+        place_golden_tile(-1300, 1500, "Uh oh!!! A trap. Use the Rifle for longer range.")
+        place_golden_tile(100, -1500, "Muahaha!!! Even bigger trap!")
+        place_golden_tile(1300, 1500, "Yay!!!")
+        place_golden_tile(1500, -700, "Oh no! Road blocked!!! Use the portal gun!!!")
+        place_golden_tile(1500, -1300, "Yay!!! Step onwards to proceed to level 2")
 
-        place_golden_tile(-500, 0, "Uh oh!!! A trap")
-
-        # positions = [(-1200, 400), (-800, 800), (-400, 1200), (0, 800), (400, 400)]
-        # for pos in positions:
-        #     turret = Enemy(pos[0], pos[1], GRID_Z, True)
-        #     turret.hp = 40         # Weaker health
-        #     turret.speed = 0       # Stationary turret
-        #     turret.shoot_cool = 500  # Shoots more slowly
-        #     # Optionally, scale down the boss size
-        #     for e in turret.entities:
-        #         if hasattr(e, 'height'):
-        #             e.height *= 0.6
-        #         if hasattr(e, 'radius'):
-        #             e.radius *= 0.6
-        #     enemies.append(turret)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -1010,6 +1024,9 @@ def draw_crosshair(scoped_mode):
         # screen-wide cross shaped crosshair
         glVertex2f(cx-200, cy); glVertex2f(cx+200, cy)
         glVertex2f(cx, cy-200); glVertex2f(cx, cy+200)
+    else:
+        glVertex2f(cx-15, cy); glVertex2f(cx+15, cy)
+        glVertex2f(cx, cy-15); glVertex2f(cx, cy+15)
     glEnd()
     glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
@@ -1175,6 +1192,13 @@ def draw_floor():
         glVertex3f(gt.x+100, gt.y+100, GRID_Z+0.2)
         glVertex3f(gt.x-100, gt.y+100, GRID_Z+0.2)
         glEnd()
+    if current_level == 1:
+        glColor3f(0.2, 0.8, 0.2)
+        glPushMatrix()
+        glTranslatef(1500, -1100, GRID_Z + 50)  # center column on tile
+        glScalef(200, 200, 200)  # width, depth, height of column
+        glutSolidCube(1)
+        glPopMatrix()
     # draw level-3 walls if present
     for w in walls:
         w.draw()
@@ -1293,7 +1317,7 @@ def draw_menu():
 # --------------------------- Update ---------------------------
 
 def animate():
-    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered
+    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered, once, current_level
     if not paused:
         # movement animation and physics
         player.walk_anim_tick()
@@ -1349,8 +1373,11 @@ def animate():
                         if outcome == 'defeated':
                             enemies.remove(e)
                             if e.is_boss:
-                                score_add(500)
-                                pause_game('win')
+                                if current_level == 3:
+                                    score_add(500)
+                                    pause_game('win')
+                                elif current_level == 1:
+                                    score_add(200)
                             else:
                                 score_add(20)
                         # remove bullet on any hit
@@ -1371,10 +1398,25 @@ def animate():
                 golden_tile_msg_timer = 120  # show for 2 seconds
                 gt.triggered = True
                 # Trap logic: spawn enemies if this is the trap tile
-                if gt.message == "Uh oh!!! A trap" and not trap_triggered:
-                    trap_triggered = True
+                if gt.message == "Uh oh!!! A trap. Use the Rifle for longer range." and not trap_triggered:
                     for pos in trap_spawn_locations:
                         enemies.append(Enemy(pos[0], pos[1], GRID_Z, False))
+
+                if gt.message == "Muahaha!!! Even bigger trap!" and not trap_triggered:
+                    trap_triggered = True
+                    positions = [(1100, 900), (1100, 100), (1100, -700)]
+                    for pos in positions:
+                        turret = Enemy(pos[0], pos[1], GRID_Z, True, 1)
+                        turret.hp = 20         # Weaker health
+                        turret.speed = 0       # Stationary turret
+                        turret.shoot_cool = 800  # Shoots more slowly
+                        # Optionally, scale down the boss size
+                        for e in turret.entities:
+                            if hasattr(e, 'height'):
+                                e.height *= 0.6
+                            if hasattr(e, 'radius'):
+                                e.radius *= 0.6
+                        enemies.append(turret)
 
         for ct in checkpoint_tiles:
             if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 100:
@@ -1423,9 +1465,8 @@ def animate():
                 score_add(3)
         # portals teleport
         if blue_portal.active and red_portal.active:
-            for e in [player] + enemies:
-                if math.hypot(e.x-blue_portal.x, e.y-blue_portal.y) < 25:
-                    e.move(red_portal.x - e.x, red_portal.y - e.y)
+            if math.hypot(player.x-blue_portal.x, player.y-blue_portal.y) < 25:
+                player.move(red_portal.x - player.x, red_portal.y - player.y)
         # checkpoints trigger
         for cx,cy in checkpoints:
             if math.hypot(player.x-cx, player.y-cy) < 20:
@@ -1449,9 +1490,10 @@ def animate():
             pass
         if current_level == 1 and level1_enemies_spawned:
             # Only show message if all spawned enemies are dead and message not yet shown
-            if level1_all_enemies_msg_active is False and level1_enemies_spawned and all(not e.is_boss for e in enemies) and len(enemies) == 0:
+            if level1_all_enemies_msg_active is False and level1_enemies_spawned and all(not e.is_boss for e in enemies) and len(enemies) == 0 and once == 0:
                 level1_all_enemies_msg = "Great job!!! Move to the next golden tile!"
                 level1_all_enemies_msg_active = True
+                once = 1
     glutPostRedisplay()
 
 # --------------------------- Score ----------------------------
@@ -1518,7 +1560,7 @@ def keys(key, x, y):
         if chests:
             nearest = min(chests, key=lambda c: math.hypot(c.x-player.x,c.y-player.y))
             if math.hypot(nearest.x-player.x, nearest.y-player.y) < 80:
-                nearest.toggle()
+                open_chest(nearest)
     # inventory hotkeys 1..9
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
@@ -1557,26 +1599,23 @@ def special_keys(key, x, y):
 
 
 def clicks(button, state, x, y):
-    global scoped, pre_scope_camera_mode, fovY, yaw_step, yaw_step_values
-    if state != GLUT_DOWN and button != GLUT_RIGHT_BUTTON: return
+    global scoped, pre_scope_camera_mode, fovY
+    if state != GLUT_DOWN: return
     # map window x,y not used — just actions
     if button == GLUT_LEFT_BUTTON:
         # left click: shoot / place portal / use consumable depending on slot
         do_primary_action()
     if button == GLUT_RIGHT_BUTTON:
         # right click: scope
-        if state == GLUT_DOWN:
+        if not scoped:
             scoped = True
             pre_scope_camera_mode = camera_mode
             set_camera_mode(cam_first)
             set_fov(True)
-            yaw_step = yaw_step_values[1]
         else:
             scoped = False
             set_fov(False)
             set_camera_mode(pre_scope_camera_mode)
-            yaw_step = yaw_step_values[0]
-
     # wheel
     if button == 3:  # wheel up
         change_slot(-1)
@@ -1684,14 +1723,14 @@ def open_chest(c:Chest):
 # --------------------------- Movement Tick --------------------
 
 def update_movement():
-    global level1_msg_active, level1_checkpoint_msg_active, level1_all_enemies_msg_active, yaw_step
+    global level1_msg_active, level1_checkpoint_msg_active, level1_all_enemies_msg_active
     
     
     # WASD planar move
     dx=0; dy=0
     sp = player.speed
     # yaw update from A/D keys (rotate while held)
-    
+    yaw_step = 0.8  # degrees per tick while held (even slower)
     # Swap A/D rotation directions
     if moving['a']:
         player.yaw = (player.yaw + yaw_step) % 360
