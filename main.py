@@ -1458,13 +1458,16 @@ def draw_menu():
     glBegin(GL_QUADS)
     glVertex2f(0,0); glVertex2f(window_width,0); glVertex2f(window_width,window_height); glVertex2f(0,window_height)
     glEnd()
-    draw_text(window_width/2-120, window_height-120, title)
+    # Centered menu copy
+    center_x = window_width//2
+    center_y = window_height//2
+    draw_text(center_x-120, center_y+60, title)
     if menu_mode=='title':
-        draw_text(window_width/2-200, window_height-170, 'Press N for New Game | F1/F2/F3 for Level Tests')
+        draw_text(center_x-160, center_y-10, 'Press N for New Game')
     elif menu_mode=='paused':
-        draw_text(window_width/2-250, window_height-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
+        draw_text(center_x-300, center_y-10, 'ESC Resume | L Load Checkpoint | R Restart Level')
     elif menu_mode in ('win','lose'):
-        draw_text(window_width/2-140, window_height-170, f'Total Score: {int(score)}')
+        draw_text(center_x-140, center_y-10, f'Total Score: {int(score)}')
         clear_level()
     elif menu_mode == 'customization':
         global player_style
@@ -1717,10 +1720,6 @@ def keys(key, x, y):
         if k in (b'l', b'L') and menu_mode=='paused':
             load_checkpoint(); paused=False; menu_mode=None
             return
-        # allow switching test levels from menu too
-        if k==b'1': setup_level(1); return
-        if k==b'2': setup_level(2); return
-        if k==b'3': setup_level(3); return
         return
 
     # gameplay keys
@@ -1770,10 +1769,7 @@ def special_keys(key, x, y):
             third_cam_back = max(60.0, third_cam_back - 5)  # move closer
         if key == GLUT_KEY_DOWN:
             third_cam_back += 5  # move further back
-    # level test shortcuts
-    if key == GLUT_KEY_F1: setup_level(1)
-    if key == GLUT_KEY_F2: setup_level(2)
-    if key == GLUT_KEY_F3: setup_level(3)
+    # test level shortcuts removed
 
     # style change
     if menu_mode == 'customization' and key == GLUT_KEY_F5: player.change_style()
