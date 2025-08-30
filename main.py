@@ -580,7 +580,7 @@ class StickPlayer(CompoundEntity):
         player_style = style
 
 class Enemy(CompoundEntity):
-    def __init__(self, x, y, ground_z, is_boss=False):
+    def __init__(self, x, y, ground_z, is_boss=False, speed = 3):
         # Boss gets a scarier, bigger model with grey head and black body
         if is_boss:
             body_col, head_col = 'black', 'grey'
@@ -588,6 +588,7 @@ class Enemy(CompoundEntity):
             body_h = 100.0
             body_r = 48.0
             head_r = 48.0
+            self.speed = speed
             # Scarier: add spikes (vertical cylinders) around head
             spike_r = 2.5
             spike_h = 30.0
@@ -937,8 +938,8 @@ def setup_level(level):
         place_lava_tile(-1300, -900)
         place_lava_tile(-1300, -1100)
         place_lava_tile(-1300, -1300)
-        place_golden_tile(-1500, -1500, "You found a secret!")
-        place_golden_tile(-1100, -1500, "You found a secret!")
+        place_golden_tile(-1500, -1500, "On to the next one!")
+        place_golden_tile(-1100, -1500, "Next one it is!")
         place_lava_tile(-900, -1500)
         place_lava_tile(-900, -1300)
         place_lava_tile(-900, -1100)
@@ -949,7 +950,7 @@ def setup_level(level):
         place_lava_tile(-900, -100)
         place_lava_tile(-900, 100)
         place_lava_tile(-1100, 100)
-        place_golden_tile(-1100, -100, 'You found a secret!')
+        place_golden_tile(-1100, -100, 'Oh! No road ahead! Press "C" to go back to the checkpoint')
         place_lava_tile(100, 100)
         place_lava_tile(100, 300)
         place_lava_tile(100, 500)
@@ -1303,7 +1304,7 @@ def display():
     else:
         draw_crosshair(False)
     
-    if level1_msg_active and level1_start_msg:
+    if level1_msg_active and level1_start_msg and current_level == 1:
         glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
         glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
         glColor3f(0,0,0)
@@ -1409,6 +1410,10 @@ def animate():
             lava_msg_timer -= 1
             if lava_msg_timer == 0:
                 lava_msg = ""
+        if golden_tile_msg_timer > 0:
+            golden_tile_msg_timer -= 1
+            if golden_tile_msg_timer == 0:
+                golden_tile_msg = ""
         # bullets
         alive = []
         for b in bullets:
@@ -1446,9 +1451,11 @@ def animate():
                         outcome = e.hit_by_bullet(b.dmg)
                         if outcome == 'defeated':
                             enemies.remove(e)
-                            if e.is_boss:
+                            if e.is_boss and current_level == 3:
                                 score_add(500)
                                 pause_game('win')
+                            elif e.is_boss and current_level == 1:
+                                score_add(200)
                             else:
                                 score_add(20)
                         # remove bullet on any hit
@@ -1495,18 +1502,23 @@ def animate():
                 set_checkpoint((ct.x, ct.y))
                 ct.saved = True
                 # Show message (simple: set a global for a few frames)
-                globals()['checkpoint_msg'] = 60  # show for 60 frames
-                
+                globals()['checkpoint_msg'] = 120  # show for 120 frames
+
                 if current_level == 1:
                     level1_checkpoint_msg = "Excellent!!! Now kill the enemies!!!"
                     level1_checkpoint_msg_active = True
                     
                     if level1_enemy_stat == 0:
+                        wb = globals().get('world_bounds')
+                        pad = 120  # keep enemies away from the wall
                         for i in range(5):
-                                angle = i * (2 * math.pi / 5)
-                                ex = player.x + math.cos(angle) * 300
-                                ey = player.y + math.sin(angle) * 300
-                                enemies.append(Enemy(ex, ey, GRID_Z, False))
+                            angle = i * (2 * math.pi / 5)
+                            ex = player.x + math.cos(angle) * 300
+                            ey = player.y + math.sin(angle) * 300
+                            # Clamp positions to stay inside the playable area
+                            ex = clamp(ex, wb['min_x'] + pad, wb['max_x'] - pad)
+                            ey = clamp(ey, wb['min_y'] + pad, wb['max_y'] - pad)
+                            enemies.append(Enemy(ex, ey, GRID_Z, False))
                         level1_enemy_stat = 1
                         level1_enemies_spawned = True
         
