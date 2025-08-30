@@ -47,6 +47,8 @@ golden_tiles = []
 golden_tile_msg = ""
 golden_tile_msg_timer = 0
 
+obstacles = []
+
 #Messages for level 1 tutorials
 level1_start_msg = ""
 level1_msg_active = False
@@ -383,6 +385,9 @@ class Chest(CompoundEntity):
         ins_1.color = get_color('gold')
         ins_2.color = get_color('chest_dark')
         self.closed = False
+        give = self.contains
+        self.contains = None
+        return give
         
     def close(self):
         ins_1 = self.entities[1]
@@ -395,7 +400,8 @@ class Chest(CompoundEntity):
         self.closed = True
         
     def toggle(self):
-        if self.closed: self.open()
+        if self.closed: 
+            return self.open()
         else: self.close()
 
 player_style = "Regular"
@@ -880,7 +886,7 @@ def camera():
 # --------------------------- Level Setup ----------------------
 
 def clear_level():
-    enemies.clear(); chests.clear(); key_positions.clear(); pickups.clear(); walls.clear()
+    enemies.clear(); chests.clear(); key_positions.clear(); pickups.clear(); walls.clear(); obstacles.clear()
     bullets.clear(); blue_portal.active=False; red_portal.active=False
     checkpoints.clear()
     globals()['world_bounds'] = None
@@ -890,7 +896,7 @@ def clear_level():
     golden_tiles.clear()
 
 def setup_level(level):
-    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active
+    global current_level, last_checkpoint, start_time, boss_spawned, boss_seen_alive, win_check_cooldown, level1_start_msg, level1_msg_active, obstacles
     current_level = level
     clear_level()
     boss_spawned = False
@@ -990,8 +996,12 @@ def setup_level(level):
         place_golden_tile(1500, -700, "Oh no! Road blocked!!! Use the portal gun!!!")
         place_golden_tile(1500, -1300, "Yay!!! Step onwards to proceed to level 2")
     elif level==2:
-        for i in range(25):
-            enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
+        field_size = 1600
+        build_level3_bounds(field_size)
+        #for i in range(25): enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
+            
+        obstacles.append(Box('toothpaste', 375, 0, GRID_Z+105, 0,0,0, 50, 3200, 200))
+        
     else:
         # Level 3 field: half of previous (from 3200 to 1600)
         field_size = 1600
@@ -1293,6 +1303,14 @@ def display():
     blue_portal.draw(); red_portal.draw()
     # player model (hide head when in first-person)
     player.ensure_head_visibility(camera_mode==cam_third)
+    for ct in checkpoint_tiles:
+        ct.draw()
+    for et in exit_tiles:
+        et.draw()
+    for lt in lava_tiles:
+        lt.draw()
+    for ob in obstacles:
+        ob.draw()
     player.draw()
 
     # HUD
@@ -1347,12 +1365,6 @@ def display():
     # Menus
     if paused:
         draw_menu()
-    for ct in checkpoint_tiles:
-        ct.draw()
-    for et in exit_tiles:
-        et.draw()
-    for lt in lava_tiles:
-        lt.draw()
     
     glutSwapBuffers()
 
@@ -1384,6 +1396,7 @@ def draw_menu():
         draw_text(window_width/2-250, window_height-170, 'ESC Resume | L Load Checkpoint | R Restart Level')
     elif menu_mode in ('win','lose'):
         draw_text(window_width/2-140, window_height-170, f'Total Score: {int(score)}')
+        clear_level()
     elif menu_mode == 'customization':
         global player_style
         draw_text(window_width/2-200, window_height-170, f'Press F5 to toggle player style. Current style: {player_style} ')
@@ -1606,7 +1619,7 @@ moving = {'w':False,'a':False,'s':False,'d':False}
 
 
 def keys(key, x, y):
-    global paused, menu_mode, camera_mode, scoped, fovY, selected_slot, pre_topdown_camera_mode
+    global paused, menu_mode, camera_mode, scoped, fovY, selected_slot, pre_topdown_camera_mode, player
     k = key
     if k==b'\x1b':  # ESC
         if paused:
@@ -1651,7 +1664,8 @@ def keys(key, x, y):
         if chests:
             nearest = min(chests, key=lambda c: math.hypot(c.x-player.x,c.y-player.y))
             if math.hypot(nearest.x-player.x, nearest.y-player.y) < 80:
-                nearest.toggle()
+                got = nearest.toggle()
+                if got: apply_pickup(got)
     # inventory hotkeys 1..9
     if k in [bytes(str(i),'ascii') for i in range(1,10)]:
         selected_slot = int(k.decode())
@@ -1862,6 +1876,9 @@ def update_movement():
             dy = new_y - player.y
         if dx or dy:
             player.move(dx,dy)
+            for ob in obstacles:
+                if player.check_collision(ob):
+                    player.move(-dx,-dy)
 
 # --------------------------- Idle -----------------------------
 
