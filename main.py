@@ -36,6 +36,14 @@ GRID_Z = 10
 #Variables for the exit tile functionality
 exit_tiles = []
 
+lava_tiles = []
+lava_msg = ""
+lava_msg_timer = 0
+
+golden_tiles = []
+golden_tile_msg = ""
+golden_tile_msg_timer = 0
+
 #Messages for level 1 tutorials
 level1_start_msg = ""
 level1_msg_active = False
@@ -48,6 +56,9 @@ level1_enemy_stat = 0
 level1_all_enemies_msg = ""
 level1_all_enemies_msg_active = False
 level1_enemies_spawned = False  # Track if the 5 enemies have been spawned
+
+trap_triggered = False
+trap_spawn_locations = [(-1200, 400), (-800, 800), (-400, 1200), (0, 800), (400, 400)]
 
 #Utility functions
 
@@ -177,12 +188,7 @@ class CheckpointTile(Entity):
         self.saved = False
 
     def draw(self):
-        glColor3f(*get_color('bright_green'))
-        glPushMatrix()
-        glTranslatef(self.x, self.y, self.z)
-        glScalef(self.width, self.depth, self.height)
-        glutSolidCube(1)
-        glPopMatrix()
+        pass
 
 #To place the checkpoint tiles on individual levels
 def place_checkpoint_tile(x, y):
@@ -195,17 +201,36 @@ class LevelExitTile(Entity):
         self.active = True
 
     def draw(self):
-        glColor3f(*get_color('black'))
-        glPushMatrix()
-        glTranslatef(self.x, self.y, self.z)
-        glScalef(self.width, self.depth, self.height)
-        glutSolidCube(1)
-        glPopMatrix()
+        pass
 
 # To place the exit tiles on individual levels
 def place_exit_tile(x, y):
     global exit_tiles
     exit_tiles.append(LevelExitTile(x, y))
+
+class LavaTile(Entity):
+    def __init__(self, x, y, z=GRID_Z):
+        super().__init__(x, y, z, width=100, depth=100, height=0)
+        self.active = True
+
+    def draw(self):
+        pass
+
+def place_lava_tile(x, y):
+    lava_tiles.append(LavaTile(x, y))
+
+class GoldenTile(Entity):
+    def __init__(self, x, y, z=GRID_Z, message=""):
+        super().__init__(x, y, z, width=200, depth=200, height=0)
+        self.active = True
+        self.message = message
+        self.triggered = False
+
+    def draw(self):
+        pass
+
+def place_golden_tile(x, y, message):
+    golden_tiles.append(GoldenTile(x, y, GRID_Z, message))
 
 class Shape3D(Entity):
     quadric = gluNewQuadric()
@@ -812,11 +837,68 @@ def setup_level(level):
     if level==1:
         field_size = 1600
         build_level3_bounds(field_size, 2000)
-        place_player(-field_size + 120, 0)
+        place_player(-field_size + 130, 100)
         place_checkpoint_tile(-1500, -100)
         level1_start_msg = "Walk over the green tile to set your checkpoint"
         level1_msg_active = True
-        place_exit_tile(-1200, 0)
+        place_lava_tile(-1300, 100)
+        place_lava_tile(-1300, 300)
+        place_lava_tile(-1300, 500)
+        place_lava_tile(-1300, 700)
+        place_lava_tile(-1300, 900)
+        place_lava_tile(-1300, 1100)
+        place_lava_tile(-1300, 1300)
+        place_lava_tile(-1300, -100)
+        place_lava_tile(-1300, -300)
+        place_lava_tile(-1300, -500)
+        place_lava_tile(-1300, -700)
+        place_lava_tile(-1300, -900)
+        place_lava_tile(-1300, -1100)
+        place_lava_tile(-1300, -1300)
+        place_golden_tile(-1500, -1500, "You found a secret!")
+        place_golden_tile(-1100, -1500, "You found a secret!")
+        place_lava_tile(-900, -1500)
+        place_lava_tile(-900, -1300)
+        place_lava_tile(-900, -1100)
+        place_lava_tile(-900, -900)
+        place_lava_tile(-900, -700)
+        place_lava_tile(-900, -500)
+        place_lava_tile(-900, -300)
+        place_lava_tile(-900, -100)
+        place_lava_tile(-900, 100)
+        place_lava_tile(-1100, 100)
+        place_golden_tile(-1100, -100, 'You found a secret!')
+        place_lava_tile(100, 100)
+        place_lava_tile(100, 300)
+        place_lava_tile(100, 500)
+        place_lava_tile(100, 700)
+        place_lava_tile(100, 900)
+        place_lava_tile(100, 1100)
+        place_lava_tile(100, 1300)
+        place_lava_tile(100, 1500)
+        place_lava_tile(100, -100)
+        place_lava_tile(100, -300)
+        place_lava_tile(100, -500)
+        place_lava_tile(100, -700)
+        place_lava_tile(100, -900)
+        place_lava_tile(100, -1100)
+        place_lava_tile(100, -1300)
+
+        place_golden_tile(-500, 0, "Uh oh!!! A trap")
+
+        # positions = [(-1200, 400), (-800, 800), (-400, 1200), (0, 800), (400, 400)]
+        # for pos in positions:
+        #     turret = Enemy(pos[0], pos[1], GRID_Z, True)
+        #     turret.hp = 40         # Weaker health
+        #     turret.speed = 0       # Stationary turret
+        #     turret.shoot_cool = 500  # Shoots more slowly
+        #     # Optionally, scale down the boss size
+        #     for e in turret.entities:
+        #         if hasattr(e, 'height'):
+        #             e.height *= 0.6
+        #         if hasattr(e, 'radius'):
+        #             e.radius *= 0.6
+        #     enemies.append(turret)
     elif level==2:
         for i in range(8): enemies.append(Enemy(random.randint(-350,350), random.randint(-350,350), GRID_Z, False))
     else:
@@ -987,11 +1069,30 @@ def draw_hud_stats():
     if font is not None:
         for ch in text:
             glutBitmapCharacter(font, ord(ch))
+
+    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
+    # Draw lava message in top-right corner if active
+    if globals().get('lava_msg_timer', 0) > 0 and globals().get('lava_msg', ""):
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
+        glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+        draw_text(window_width - 320, window_height - 60, lava_msg, (1, 0.3, 0))
+        glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
+
     if globals().get('checkpoint_msg', 0) > 0:
         draw_text(window_width//2 - 80, window_height//2 + 80, "Checkpoint Saved!")
         globals()['checkpoint_msg'] -= 1
-        
-    glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
+    if golden_tile_msg_timer > 0 and golden_tile_msg:
+        glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity(); gluOrtho2D(0, window_width, 0, window_height)
+        glMatrixMode(GL_MODELVIEW); glPushMatrix(); glLoadIdentity()
+        glColor3f(0,0,0)
+        glBegin(GL_QUADS)
+        glVertex2f(window_width//2-200, window_height//2+120)
+        glVertex2f(window_width//2+200, window_height//2+120)
+        glVertex2f(window_width//2+200, window_height//2+170)
+        glVertex2f(window_width//2-200, window_height//2+170)
+        glEnd()
+        draw_text(window_width//2 - 180, window_height//2 + 140, golden_tile_msg)
+        glPopMatrix(); glMatrixMode(GL_PROJECTION); glPopMatrix(); glMatrixMode(GL_MODELVIEW)
 
 # --------------------------- Drawing --------------------------
 
@@ -1037,6 +1138,39 @@ def draw_floor():
                     glVertex3f(x+tile,y,     z)
                     glVertex3f(x+tile,y+tile,z)
                     glVertex3f(x,     y+tile,z)
+        glEnd()
+
+    for ct in checkpoint_tiles:
+        glColor3f(*get_color('bright_green'))
+        glBegin(GL_QUADS)
+        glVertex3f(ct.x-100, ct.y-100, GRID_Z+0.2)
+        glVertex3f(ct.x+100, ct.y-100, GRID_Z+0.2)
+        glVertex3f(ct.x+100, ct.y+100, GRID_Z+0.2)
+        glVertex3f(ct.x-100, ct.y+100, GRID_Z+0.2)
+        glEnd()
+    for et in exit_tiles:
+        glColor3f(*get_color('black'))
+        glBegin(GL_QUADS)
+        glVertex3f(et.x-100, et.y-100, GRID_Z+0.2)
+        glVertex3f(et.x+100, et.y-100, GRID_Z+0.2)
+        glVertex3f(et.x+100, et.y+100, GRID_Z+0.2)
+        glVertex3f(et.x-100, et.y+100, GRID_Z+0.2)
+        glEnd()
+    for lt in lava_tiles:
+        glColor3f(1.0, 0.3, 0.0)
+        glBegin(GL_QUADS)
+        glVertex3f(lt.x-100, lt.y-100, GRID_Z+0.2)
+        glVertex3f(lt.x+100, lt.y-100, GRID_Z+0.2)
+        glVertex3f(lt.x+100, lt.y+100, GRID_Z+0.2)
+        glVertex3f(lt.x-100, lt.y+100, GRID_Z+0.2)
+        glEnd()
+    for gt in golden_tiles:
+        glColor3f(*get_color('gold'))
+        glBegin(GL_QUADS)
+        glVertex3f(gt.x-100, gt.y-100, GRID_Z+0.2)
+        glVertex3f(gt.x+100, gt.y-100, GRID_Z+0.2)
+        glVertex3f(gt.x+100, gt.y+100, GRID_Z+0.2)
+        glVertex3f(gt.x-100, gt.y+100, GRID_Z+0.2)
         glEnd()
     # draw level-3 walls if present
     for w in walls:
@@ -1120,6 +1254,8 @@ def display():
         ct.draw()
     for et in exit_tiles:
         et.draw()
+    for lt in lava_tiles:
+        lt.draw()
     
     glutSwapBuffers()
 
@@ -1154,12 +1290,26 @@ def draw_menu():
 # --------------------------- Update ---------------------------
 
 def animate():
-    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active
+    global score, best_score, paused, win_check_cooldown, level1_checkpoint_msg, level1_checkpoint_msg_active, level1_enemy_stat, level1_enemies_spawned, level1_all_enemies_msg, level1_all_enemies_msg_active, lava_msg, lava_msg_timer, golden_tile_msg, golden_tile_msg_timer, trap_triggered
     if not paused:
         # movement animation and physics
         player.walk_anim_tick()
         player.physics()
-    # bullets
+
+        on_lava = False
+        for lt in lava_tiles:
+            if lt.active and math.hypot(player.x - lt.x, player.y - lt.y) < 100:
+                player.health -= 0.005  # damage per frame on lava
+                on_lava = True
+                break
+        if on_lava:
+            lava_msg = "Ouch!!! Lava hurts!!!"
+            lava_msg_timer = 60  # show for 60 frames (~1 second)
+        elif lava_msg_timer > 0:
+            lava_msg_timer -= 1
+            if lava_msg_timer == 0:
+                lava_msg = ""
+        # bullets
         alive = []
         for b in bullets:
             if b.update(): alive.append(b)
@@ -1212,6 +1362,17 @@ def animate():
                         try: bullets.remove(b)
                         except: pass
                         break
+        for gt in golden_tiles:
+            if gt.active and not gt.triggered and math.hypot(player.x - gt.x, player.y - gt.y) < 100:
+                golden_tile_msg = gt.message
+                golden_tile_msg_timer = 120  # show for 2 seconds
+                gt.triggered = True
+                # Trap logic: spawn enemies if this is the trap tile
+                if gt.message == "Uh oh!!! A trap" and not trap_triggered:
+                    trap_triggered = True
+                    for pos in trap_spawn_locations:
+                        enemies.append(Enemy(pos[0], pos[1], GRID_Z, False))
+
         for ct in checkpoint_tiles:
             if ct.active and math.hypot(player.x - ct.x, player.y - ct.y) < 100:
                 set_checkpoint((ct.x, ct.y))
@@ -1285,7 +1446,7 @@ def animate():
         if current_level == 1 and level1_enemies_spawned:
             # Only show message if all spawned enemies are dead and message not yet shown
             if level1_all_enemies_msg_active is False and level1_enemies_spawned and all(not e.is_boss for e in enemies) and len(enemies) == 0:
-                level1_all_enemies_msg = "Great job! All enemies defeated. Explore further or find the exit."
+                level1_all_enemies_msg = "Great job!!! Move to the next golden tile!"
                 level1_all_enemies_msg_active = True
     glutPostRedisplay()
 
