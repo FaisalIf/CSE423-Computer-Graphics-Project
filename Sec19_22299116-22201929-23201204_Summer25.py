@@ -1005,11 +1005,10 @@ def setup_level(level):
         chests.append(a)
         chests.append(b)
     elif level==2:
-        field_size = 1600
+        field_size = 800
+        place_golden_tile(100, 700, "Oh no they're fast")
+        obstacles.append(Box('red', 300, 700, GRID_Z+100, 0, 0, 0, 200, 200, 200))
         build_level3_bounds(field_size)
-        #for i in range(25): enemies.append(FastEnemy(random.randint(-350,350), random.randint(-350,350), GRID_Z))
-            
-        obstacles.append(Box('toothpaste', 375, 0, GRID_Z+105, 0,0,0, 50, 3200, 200))
         
     else:
         field_size = 1600
@@ -1481,7 +1480,10 @@ def animate():
     if not paused:
         # movement animation and physics
         player.physics()
-
+        if current_level == 2:
+            for e in enemies:
+                if obstacles[0].check_collision(e):
+                    enemies.remove(e)
         on_lava = False
         for lt in lava_tiles:
             if lt.active and math.hypot(player.x - lt.x, player.y - lt.y) < 100:
@@ -1580,6 +1582,15 @@ def animate():
                             if hasattr(e, 'radius'):
                                 e.radius *= 0.6
                         enemies.append(turret)
+
+                if gt.message == "Oh no they're fast" and not trap_triggered:
+                    trap_triggered = True
+                    positions = [(100, -200), (100, -300), (100, -500), (100, -700), (100, -300),(100, -500), (100, -700),(100, -500), (100, -700), (100, -500), (100, -700), (100, -300), (100, -500), (100, -700)]
+                    for x, y in positions:
+                        
+                        enemies.append(FastEnemy(x, y, GRID_Z))
+                    
+                    place_exit_tile(100, -700)
 
                 # Level 3 golden row trap: spawn another boss and remove the golden row
                 if gt.message == TRAP_MSG and not level3_trap_boss_spawned and current_level == 3:
